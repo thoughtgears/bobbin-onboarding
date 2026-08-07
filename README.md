@@ -1,0 +1,57 @@
+# Connecting Bobbin
+
+Everything you need to connect [Bobbin](https://getbobbin.dev) to your
+GCP project and your Slack workspace.
+
+**This repository exists to be read.** Bobbin asks for read access to your
+production infrastructure, so the honest way to ask is to show you exactly
+what is being requested, in code you can check, before you run anything.
+There is no installer, no binary, and no step that phones home.
+
+## What Bobbin gets
+
+Four Google-managed **read-only** roles, on the projects you choose:
+
+| Role | What it reads |
+| --- | --- |
+| `roles/logging.viewer` | Log entries |
+| `roles/monitoring.viewer` | Metrics and alert policies |
+| `roles/errorreporting.viewer` | Error groups |
+| `roles/run.viewer` | Cloud Run service and revision configuration |
+
+That is the complete list. Bobbin cannot change anything in your project,
+and asks for no role that would let it. It reads at the moment an alert
+fires and keeps no copy of your telemetry.
+
+## The two halves
+
+Connecting Bobbin has a GCP half and a Slack half. They are independent —
+do them in either order.
+
+1. **[Granting access](docs/granting-access.md)** — the four roles above
+   and a notification channel, via `./grant-bobbin-access.sh`.
+2. **[Slack setup](docs/slack-setup.md)** — install the Bobbin app in
+   your workspace and choose a channel.
+
+## Start here
+
+```bash
+./grant-bobbin-access.sh \
+  --tenant-sa "<the service account we gave you>" \
+  --topic "<the topic we gave you>" \
+  --project "<your project id>" \
+  --dry-run
+```
+
+`--dry-run` prints every command it would run and changes nothing. Run it
+first, read the output, then run it again without the flag.
+
+## Removing Bobbin
+
+Reverse the four role grants and delete the notification channel; details
+in [granting access](docs/granting-access.md). Nothing else of ours exists
+in your project.
+
+## Questions
+
+Anything at all, including "why do you need this role" — ask.

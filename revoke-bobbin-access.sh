@@ -15,6 +15,13 @@
 #   roles/run.viewer             removed
 #   the "Bobbin (@bobby)" Pub/Sub notification channel  deleted
 #
+# Deleting that channel also UNLINKS it from any alert policy that used
+# it — Cloud Monitoring refuses to delete a referenced channel, so the
+# alternative is leaving behind the one thing this script exists to
+# remove. The policies themselves survive untouched and keep firing; they
+# simply lose one notification target, which is what removing Bobbin
+# means.
+#
 # Nothing else of ours exists in your project, so when this finishes there
 # is nothing of ours left in it.
 #
@@ -121,7 +128,7 @@ note "On each project, remove that service account from these four roles:"
 for role in "${ROLES[@]}"; do note "  $role"; done
 note ""
 note "…and delete the Bobbin notification channel."
-note "Nothing else is touched. Your alert policies are left exactly as they are."
+note "Your alert policies are kept — they only lose Bobbin as a target."
 
 if [[ "$DRY_RUN" == true ]]; then
   note ""
@@ -199,15 +206,27 @@ for project in "${PROJECTS[@]}"; do
   if [[ -z "$found" ]]; then
     note "no Bobbin notification channel found — nothing to delete"
   else
-    run gcloud beta monitoring channels delete "$found" --project "$project"
+    # --force, and the reason is a contradiction found by running this:
+    # a channel cannot be deleted while an alert policy still references
+    # it (FAILED_PRECONDITION), and the policies referencing it are the
+    # customer's own. Without --force the script leaves behind the one
+    # thing it exists to remove, and reports success.
+    #
+    # --force deletes it AND unlinks it from those policies. The policies
+    # survive — they keep firing, they simply lose one notification
+    # target, which is precisely what removing Bobbin means. That is a
+    # smaller edit than leaving our channel wired into their monitoring
+    # for ever.
+    run gcloud beta monitoring channels delete "$found" --project "$project" --force
     note "deleted the notification channel"
+    note "  any alert policy that used it keeps firing, with one fewer target"
   fi
 
-  # Deliberately NOT deleted: any alert policy that referenced the channel.
-  # Those are yours — you wrote them, they describe your systems, and they
-  # keep working with whatever other channels they have. Removing them
-  # would be us deciding what your monitoring should look like.
-  note "alert policies left alone — they are yours"
+  # Deliberately NOT deleted: the alert policies themselves. They are
+  # yours — you wrote them, they describe your systems — and removing
+  # them would be us deciding what your monitoring should look like.
+  # Unlinking our channel from them is not the same act as deleting them.
+  note "alert policies left in place — only our channel is unlinked"
 done
 
 step "Done"

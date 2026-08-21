@@ -98,5 +98,28 @@ in one Slack thread (storms fold; no channel spam).
 
 ## Removing access
 
-Reverse step 1 (`remove-iam-policy-binding` per role) and delete the
-notification channel. Nothing else exists on your side.
+```bash
+./revoke-bobbin-access.sh \
+  --tenant-sa "<the service account>" \
+  --project "<your project id>" \
+  --dry-run
+```
+
+Same contract as the grant: `--dry-run` prints every command and changes
+nothing, and it calls nothing but `gcloud`. It removes the four role
+bindings and deletes the notification channel. Your alert policies are
+left alone — you wrote them, and they keep working with whatever other
+channels they have.
+
+**You do not have to run it for your data to be deleted.** Our half of the
+teardown — the service account that could read your projects, your stored
+credentials, your investigation history — runs on our schedule and does
+not wait for you. This script removes the permissions you granted; ours
+removes the identity they were granted to. Either alone stops Bobbin
+reading anything.
+
+One thing worth knowing if you run it after we have already torn down our
+side: a deleted service account stops appearing in your IAM policy under
+its own name and shows up as `deleted:serviceAccount:…?uid=…` instead. The
+script reads your live policy and removes whichever form is actually
+there, so it works either way round.

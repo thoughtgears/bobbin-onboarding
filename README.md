@@ -48,9 +48,16 @@ first, read the output, then run it again without the flag.
 
 ## Removing Bobbin
 
-Reverse the four role grants and delete the notification channel; details
-in [granting access](docs/granting-access.md). Nothing else of ours exists
-in your project.
+```bash
+./revoke-bobbin-access.sh --tenant-sa "<…>" --project "<…>" --dry-run
+```
+
+The exact reverse of the grant, and readable the same way. Details in
+[granting access](docs/granting-access.md). Nothing else of ours exists in
+your project.
+
+Your data is deleted whether or not you run it — our side of the teardown
+does not wait for yours.
 
 ## Questions
 

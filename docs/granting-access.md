@@ -12,6 +12,10 @@ You will have received two values from us during onboarding:
 - `TOPIC` — your alert intake topic, e.g.
   `projects/bobbin-hub-N/topics/tenant-acme-prod-alerts`
 
+Prefer Terraform? [`../terraform`](../terraform) applies the same two
+steps below as a module — see its README for inputs, outputs and a
+copy-paste example.
+
 ## 0. Prefer the script
 
 `./grant-bobbin-access.sh` does everything below, and
@@ -141,3 +145,7 @@ side: a deleted service account stops appearing in your IAM policy under
 its own name and shows up as `deleted:serviceAccount:…?uid=…` instead. The
 script reads your live policy and removes whichever form is actually
 there, so it works either way round.
+
+Used the Terraform module instead of the script? `terraform destroy` is
+the exact reverse — see
+[`../terraform/README.md`](../terraform/README.md#removing-bobbin).

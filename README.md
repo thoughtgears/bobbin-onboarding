@@ -29,7 +29,13 @@ Connecting Bobbin has a GCP half and a Slack half. They are independent —
 do them in either order.
 
 1. **[Granting access](docs/granting-access.md)** — the four roles above
-   and a notification channel, via `./grant-bobbin-access.sh`.
+   and a notification channel. Three ways to apply them, all doing
+   exactly the same thing (ADR-0003 in the product repo):
+   - the doc itself — numbered `gcloud` steps, run by hand
+   - `./grant-bobbin-access.sh` — the same steps wrapped in a readable,
+     auditable script; the default on a live onboarding call
+   - **[`terraform/`](terraform/)** — a plain-HCL module, for IaC-native
+     shops that would rather `plan` and `apply` than run bash
 2. **[Slack setup](docs/slack-setup.md)** — install the Bobbin app in
    your workspace and choose a channel.
 
@@ -50,6 +56,9 @@ a project number per project — send us those numbers; alerts cannot flow
 until we grant your projects' Cloud Monitoring service agent publish
 rights on your topic.
 
+Prefer Terraform? Skip to [`terraform/`](terraform/) — same grants, same
+roles, no `gcloud` required.
+
 ## Removing Bobbin
 
 ```bash
@@ -57,8 +66,10 @@ rights on your topic.
 ```
 
 The exact reverse of the grant, and readable the same way. Details in
-[granting access](docs/granting-access.md). Nothing else of ours exists in
-your project.
+[granting access](docs/granting-access.md). Used the Terraform module
+instead? `terraform destroy` is the exact reverse there — see
+[`terraform/README.md`](terraform/README.md#removing-bobbin). Either way,
+nothing else of ours exists in your project.
 
 Your data is deleted whether or not you run it — our side of the teardown
 does not wait for yours.

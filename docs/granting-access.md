@@ -8,9 +8,13 @@ page before running it._
 You will have received two values from us during onboarding:
 
 - `TENANT_SA` — your dedicated service account, e.g.
-  `tenant-acme-prod@bobbin-shard-0.iam.gserviceaccount.com`
+  `tenant-acme-prod@bobbin-shard-N.iam.gserviceaccount.com`
 - `TOPIC` — your alert intake topic, e.g.
-  `projects/bobbin-hub-64775/topics/tenant-acme-prod-alerts`
+  `projects/bobbin-hub-N/topics/tenant-acme-prod-alerts`
+
+Prefer Terraform? [`../terraform`](../terraform) applies the same two
+steps below as a module — see its README for inputs, outputs and a
+copy-paste example.
 
 ## 0. Prefer the script
 
@@ -59,6 +63,19 @@ done
 
 That is the complete access list. No write role is ever requested.
 
+**Success looks like:** each of the four commands prints the project's
+updated IAM policy, ending in a line for `serviceAccount:$TENANT_SA`
+under the role you just granted. To check all four landed in one go:
+
+```bash
+gcloud projects get-iam-policy "$PROJECT_ID" \
+  --flatten='bindings[].members' \
+  --format='table(bindings.role)' \
+  --filter="bindings.members:serviceAccount:$TENANT_SA"
+```
+
+That should list all four roles from the block above, and nothing else.
+
 ## 2. Create the alert notification channel
 
 In your project, pointing at your Bobbin topic. **Check first if you are
@@ -79,6 +96,11 @@ gcloud beta monitoring channels create \
   --type pubsub \
   --channel-labels "topic=$TOPIC"
 ```
+
+**Success looks like:** `gcloud` prints the created channel's resource
+name, shaped `projects/<id>/notificationChannels/<n>` — that name
+existing is what proves the channel was created. Re-running the `list`
+command from above should now show it.
 
 ## 3. Tell us your project number
 
@@ -123,3 +145,7 @@ side: a deleted service account stops appearing in your IAM policy under
 its own name and shows up as `deleted:serviceAccount:…?uid=…` instead. The
 script reads your live policy and removes whichever form is actually
 there, so it works either way round.
+
+Used the Terraform module instead of the script? `terraform destroy` is
+the exact reverse — see
+[`../terraform/README.md`](../terraform/README.md#removing-bobbin).

@@ -88,7 +88,7 @@ Usage:
                           [--topic <TOPIC>] [--dry-run] [--yes]
 
   --tenant-sa   The service account you granted access to, e.g.
-                tenant-acme@bobbin-shard-0.iam.gserviceaccount.com
+                tenant-acme@bobbin-shard-N.iam.gserviceaccount.com
   --project     A project to remove Bobbin from. Repeat for several.
   --topic       Your alert topic. Optional: without it the notification
                 channel is matched by display name instead, which is

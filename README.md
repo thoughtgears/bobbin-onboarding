@@ -44,7 +44,11 @@ do them in either order.
 ```
 
 `--dry-run` prints every command it would run and changes nothing. Run it
-first, read the output, then run it again without the flag.
+first, read the output, then run it again without the flag. A successful
+run ends with "Done — one thing left, and it is on our side" followed by
+a project number per project — send us those numbers; alerts cannot flow
+until we grant your projects' Cloud Monitoring service agent publish
+rights on your topic.
 
 ## Removing Bobbin
 

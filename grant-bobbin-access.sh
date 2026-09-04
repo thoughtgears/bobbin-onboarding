@@ -91,9 +91,9 @@ Usage:
                          [--dry-run] [--yes]
 
   --tenant-sa   The service account we gave you, e.g.
-                tenant-acme@bobbin-shard-0.iam.gserviceaccount.com
+                tenant-acme@bobbin-shard-N.iam.gserviceaccount.com
   --topic       Your alert intake topic, e.g.
-                projects/bobbin-hub-64775/topics/tenant-acme-alerts
+                projects/bobbin-hub-N/topics/tenant-acme-alerts
   --project     A project Bobbin should investigate. Repeat for several.
   --dry-run     Print every command without running it. Do this first.
   --yes         Skip the confirmation prompt (for reruns).

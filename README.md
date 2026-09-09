@@ -14,7 +14,7 @@ Four Google-managed **read-only** roles, on the projects you choose:
 
 | Role | What it reads |
 | --- | --- |
-| `roles/logging.viewer` | Log entries |
+| `roles/logging.viewer` | Log entries, and the Admin Activity audit log |
 | `roles/monitoring.viewer` | Metrics and alert policies |
 | `roles/errorreporting.viewer` | Error groups |
 | `roles/run.viewer` | Cloud Run service and revision configuration |
@@ -22,6 +22,16 @@ Four Google-managed **read-only** roles, on the projects you choose:
 That is the complete list. Bobbin cannot change anything in your project,
 and asks for no role that would let it. It reads at the moment an alert
 fires and keeps no copy of your telemetry.
+
+The audit-log half of `logging.viewer` is worth calling out rather than
+leaving you to infer it from the role name. When an incident was caused by
+a configuration or IAM change rather than a deploy, the only place that
+says so is your Admin Activity audit log, so Bobbin reads it: what changed,
+when, and the email address of whoever changed it. It is the same
+`logging.logEntries.list` the role already grants — no extra permission —
+but it is a different sentence, and you should have it before you run
+anything. Data Access audit logs are a separate permission
+(`logging.privateLogEntries.list`) and Bobbin is never granted it.
 
 ## The two halves
 

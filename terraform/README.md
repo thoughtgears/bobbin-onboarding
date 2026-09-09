@@ -16,7 +16,7 @@ On every project you list, this module:
 
 | Role | What it reads |
 | --- | --- |
-| `roles/logging.viewer` | Log entries |
+| `roles/logging.viewer` | Log entries, and the Admin Activity audit log |
 | `roles/monitoring.viewer` | Metrics and alert policies |
 | `roles/errorreporting.viewer` | Error groups |
 | `roles/run.viewer` | Cloud Run service and revision configuration |

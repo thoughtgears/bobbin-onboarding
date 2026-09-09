@@ -33,7 +33,7 @@ tried to.
 
 ```hcl
 module "bobbin" {
-  source = "github.com/thoughtgears/bobbin-onboarding//terraform?ref=v0.1.0"
+  source = "github.com/thoughtgears/bobbin-onboarding//terraform?ref=a218137a65d8215d2cb2351c524af6ace9eddcc"
 
   tenant_service_account = "tenant-acme-prod@bobbin-shard-N.iam.gserviceaccount.com"
   tenant_topic           = "projects/bobbin-hub-N/topics/tenant-acme-prod-alerts"
@@ -45,9 +45,16 @@ output "bobbin_project_numbers" {
 }
 ```
 
-Pin `ref` to a tag (see [`../CHANGELOG.md`](../CHANGELOG.md) for what
-changed at each one) rather than tracking a branch, so an upstream change
-never lands in your plan unannounced.
+**Pin `ref` to something immutable rather than tracking a branch**, so an
+upstream change never lands in your plan unannounced. No release has been
+tagged yet, so today that means a commit SHA — take the latest from
+[the commit list](https://github.com/thoughtgears/bobbin-onboarding/commits/main)
+and paste it whole. Once `v0.1.0` is cut, `?ref=v0.1.0` will be the better
+form and [`../CHANGELOG.md`](../CHANGELOG.md) will say what changed at each
+tag.
+
+We would rather tell you this than leave a tag name in the example that
+`terraform init` cannot resolve.
 
 A working, minimal root module is in
 [`../examples/single-project`](../examples/single-project).

@@ -36,8 +36,8 @@ do them in either order.
      auditable script; the default on a live onboarding call
    - **[`terraform/`](terraform/)** — a plain-HCL module, for IaC-native
      shops that would rather `plan` and `apply` than run bash
-2. **[Slack setup](docs/slack-setup.md)** — install the Bobbin app in
-   your workspace and choose a channel.
+2. **[Slack setup](docs/slack-setup.md)** — click **Add to Slack** in
+   your console and choose a channel on Slack's own consent screen.
 
 ## Start here
 

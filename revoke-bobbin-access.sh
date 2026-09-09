@@ -60,10 +60,16 @@ step() { printf '\n== %s\n' "$*"; }
 # to turn one on.
 gcloud() { command gcloud "$@" --quiet </dev/null; }
 
+# Same as the grant script's, and the safe-character class is deliberately
+# the same too. `?` is NOT in it, even though the tombstone member form
+# below is full of them: an unquoted `?` is a glob, and zsh — the default
+# shell on macOS — refuses the whole line with "no matches found" rather
+# than passing it through as bash would. The printed commands exist to be
+# pasted, so the member gets quoted and stays pasteable.
 shell_quote() {
   local arg out=""
   for arg in "$@"; do
-    if [[ "$arg" =~ ^[A-Za-z0-9_./:=@?-]+$ ]]; then
+    if [[ "$arg" =~ ^[A-Za-z0-9_./:=@-]+$ ]]; then
       out+="$arg "
     else
       out+="'${arg}' "

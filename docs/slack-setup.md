@@ -1,91 +1,58 @@
 # Connecting Bobbin to Slack
 
-Bobby posts into **your** Slack workspace, so the app is installed by you,
-in your workspace, with a token you control. We never need access to your
-Slack beyond the one channel you point us at.
+Bobby posts into **your** Slack workspace. You install the Bobbin app
+yourself, from your own console, on Slack's own consent screen — and you
+pick the channel investigations land in while you are there.
 
-Four steps, all yours. The last one hands us two values.
+## Install
 
-## 1. Create the app from the manifest
+In the Bobbin console, choose **Add to Slack**.
 
-At <https://api.slack.com/apps> → **Create New App → From a manifest**,
-choose your workspace, and paste:
+You land on Slack's own consent screen, which asks which workspace and
+which channel. Approve it, and Slack sends the resulting token straight to
+Bobbin. Nothing to copy, nothing to paste, and no credential passing
+through a person at either end. Bobby joins the channel you picked as part
+of the same step, so there is no separate `/invite`.
 
-```yaml
-display_information:
-  name: Bobbin
-  description: Investigates your Cloud Monitoring alerts and posts a root-cause hypothesis with evidence.
-  background_color: '#212a31'
-features:
-  bot_user:
-    display_name: bobby
-    always_online: true
-oauth_config:
-  scopes:
-    bot:
-      - chat:write
-settings:
-  org_deploy_enabled: false
-  socket_mode_enabled: false
-  token_rotation_enabled: false
-```
+## What the app asks for, and why
 
-That is the whole app: **one bot user, one scope**. `chat:write` lets
-Bobby post messages, including thread replies. There are no event
-subscriptions, no interactivity, and no slash commands — Bobby cannot read
-your Slack, only write to the channel you invite it to.
+Two bot scopes. That is the whole app: no user scopes, no event
+subscriptions, no interactivity, no slash commands.
 
-## 2. Install it and copy the token
+| Scope              | What it is for                                                                                                                                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `chat:write`       | Post messages, including thread replies. This is how Bobby posts at all.                                                                                                                                                  |
+| `incoming-webhook` | **Not what Bobby posts through.** It is what makes Slack's own consent screen ask _which channel_, hand that channel's id back, and add Bobby to it. Without it, OAuth yields a token and no channel, and we would have to ask you the same question again on our screen instead of Slack's. |
 
-**Install App → Install to Workspace → Allow**, then copy the **Bot User
-OAuth Token** — it starts `xoxb-`.
+`incoming-webhook` is the one worth reading twice, because the name
+promises more than it does here: Bobbin never posts through the webhook the
+install creates. It is there so the channel choice happens on Slack's
+screen rather than ours.
 
-This token is a credential for your workspace. Treat it accordingly; step
-4 covers getting it to us safely.
+**Bobby cannot read your Slack.** Neither scope grants read access to any
+message — in the channel he posts to or anywhere else. The scopes that
+would (`channels:history` and its relatives) are not requested, and there
+is no event subscription that could deliver a message to us even if one
+were.
 
-## 3. Choose a channel and invite Bobby
+## What arrives in the channel
 
-Create or pick the channel where investigations should land, then in that
-channel:
+One incident, one thread: the verdict, the evidence behind it, a suggested
+fix, and how confident Bobby is. An alert storm on the same underlying
+incident folds into that one thread rather than posting again for every
+alert.
 
-```text
-/invite @bobby
-```
+## Changing the channel
 
-**This step is not optional.** Posting to a channel the bot has not been
-invited to fails with `not_in_channel`, and the failure is silent from
-your side.
-
-Then copy the channel ID: **channel name → About → Channel ID**, starting
-with `C`.
-
-## 4. Send us the token and the channel ID
-
-We need both to finish the connection:
-
-- the `xoxb-…` bot token from step 2
-- the `C…` channel ID from step 3
-
-**Do not email them or paste them in a chat.** Ask us for a one-time
-secret link and send them through that; we will have already offered one.
-The channel ID alone is harmless — it is the token that matters.
-
-Once we have them, Bobby posts into the channel the next time one of your
-alerts fires.
-
-## Why this is manual, and what replaces it
-
-An "Add to Slack" button would be better: you would click once, and the
-token would go straight from Slack to us without a human ever handling it.
-That is where this is going.
-
-It is manual today because the button needs a verified public app, and we
-would rather have five design partners tell us Bobbin is useful before
-asking Slack to review it. Until then, the manifest above is the whole app
-and you can read every permission it requests.
+The channel is chosen once, on Slack's consent screen, at install time.
+Running **Add to Slack** again lets you pick a different one.
 
 ## Removing Bobby
 
-Delete the app from your workspace (**Settings → Manage apps → Bobbin →
-Remove App**). The token dies with it and we lose all Slack access
-immediately — there is nothing to ask us to revoke.
+In your workspace: **Settings → Manage apps → Bobbin → Remove App**. The
+token dies with it and Bobbin loses all Slack access immediately — there is
+nothing to ask us to revoke.
+
+You do not have to do it for the connection to end. When you leave, Bobbin
+uninstalls the app itself rather than merely forgetting the token, on its
+own schedule and without waiting for you. Either half alone is sufficient.

@@ -3,13 +3,14 @@
 # Grants Bobbin read-only access to your GCP project(s).
 #
 # THIS SCRIPT IS MEANT TO BE READ BEFORE IT IS RUN. It wraps the steps in
-# docs/onboarding/grant-access.md one-for-one and calls nothing but
-# `gcloud`. There is no network access to Bobbin, no telemetry, no
-# install step, and no binary. Everything it does, you could type.
+# docs/granting-access.md one-for-one and calls nothing but `gcloud`.
+# There is no network access to Bobbin, no telemetry, no install step,
+# and no binary. Everything it does, you could type.
 #
 # What it grants, in full:
 #
-#   roles/logging.viewer         read log entries
+#   roles/logging.viewer         read log entries, and the Admin
+#                                Activity audit log
 #   roles/monitoring.viewer      read metrics and alert policies
 #   roles/errorreporting.viewer  read error groups
 #   roles/run.viewer             read Cloud Run service and revision config

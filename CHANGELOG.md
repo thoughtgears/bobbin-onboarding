@@ -6,7 +6,30 @@ the Terraform module's GitHub source
 pin a tag rather than tracking a branch, so an upstream change never
 lands in your plan unannounced.
 
-## [Unreleased] — v0.1.0
+## [Unreleased] — v0.2.0
+
+### Added
+
+- **Optional configuration roles, one per service** (ADR-0055 in the
+  product repo). `grant-bobbin-access.sh --family <name>` (repeatable),
+  the module's `families` input, and a by-hand section in
+  [`docs/granting-access.md`](docs/granting-access.md). Each is a custom
+  role defined in your project holding exactly the `get`/`list`
+  permissions the product's tool calls: `managed-sql`, `cache`,
+  `kubernetes`, `compute`, `networking`. Without the flag or the input,
+  both paths do exactly what v0.1.0 did.
+- `revoke-bobbin-access.sh` now removes any family role binding and
+  deletes the role definition, unconditionally — nothing of ours is
+  left in your project.
+- Module outputs: `granted_roles` includes the family roles;
+  `family_roles` lists each definition and its permissions.
+
+### Noted
+
+- For GKE the role is `container.clusters.get` and `.list` — the GKE API
+  only. Bobbin never connects to your cluster.
+
+## v0.1.0
 
 ### Added
 

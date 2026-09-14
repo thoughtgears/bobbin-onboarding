@@ -21,6 +21,12 @@ On every project you list, this module:
 | `roles/errorreporting.viewer` | Error groups |
 | `roles/run.viewer` | Cloud Run service and revision configuration |
 
+Optionally, per family you list in `families`, one more read-only
+**custom** role is defined in the project and bound — see
+[Optional: a configuration role per service](../docs/granting-access.md#optional-a-configuration-role-per-service)
+for what each reads and cannot. `terraform destroy` removes the
+definition with the binding.
+
 That is the complete list — this module never requests, and never
 grants, anything beyond it. It also never touches the tenant topic's own
 IAM policy: granting your projects' Cloud Monitoring service agent
@@ -33,11 +39,14 @@ tried to.
 
 ```hcl
 module "bobbin" {
-  source = "github.com/thoughtgears/bobbin-onboarding//terraform?ref=v0.1.0"
+  source = "github.com/thoughtgears/bobbin-onboarding//terraform?ref=v0.2.0"
 
   tenant_service_account = "tenant-acme-prod@bobbin-shard-N.iam.gserviceaccount.com"
   tenant_topic           = "projects/bobbin-hub-N/topics/tenant-acme-prod-alerts"
   project_ids            = ["my-production-project"]
+
+  # Optional — omit for the four roles and nothing else.
+  families = ["managed-sql"]
 }
 
 output "bobbin_project_numbers" {
@@ -60,13 +69,15 @@ A working, minimal root module is in
 | `tenant_topic` | `string` | yes | Your alert intake topic as a full resource path, e.g. `projects/bobbin-hub-N/topics/tenant-acme-prod-alerts`. Validated against that shape. |
 | `project_ids` | `set(string)` | yes | The GCP projects Bobbin should investigate. One set of grants and one notification channel are created per project. |
 | `channel_display_name` | `string` | no | Notification channel display name. Defaults to `"Bobbin (@bobby)"`, matching the doc and the script. |
+| `families` | `set(string)` | no | Optional configuration roles, one per service: a subset of `managed-sql`, `cache`, `kubernetes`, `compute`, `networking`. Default `[]` — exactly the four roles above. Defining a role needs `iam.roles.create` on the project. |
 
 ## Outputs
 
 | Name | Description |
 | --- | --- |
 | `notification_channel_ids` | Map of `project_id => notification channel resource name` (`projects/<id>/notificationChannels/<n>`). Attach these to the alert policies you want investigated. |
-| `granted_roles` | The exact four roles granted — the complete access list, for your own verification. |
+| `granted_roles` | The exact roles granted — the four, plus one custom role per project and family — the complete access list, for your own verification. |
+| `family_roles` | The custom roles this module defined, per project and family, with their permission lists. Empty when `families` is empty. |
 | `project_numbers` | Map of `project_id => project number`. Send these to Bobbin: see "What it applies" above. |
 
 ## The known gotcha: domain-restricted sharing
@@ -93,8 +104,9 @@ access — is also the one least able to enable it safely.
 terraform destroy
 ```
 
-The exact reverse of `apply`: it removes the four role bindings and
-deletes the notification channel. The channel resource is configured
+The exact reverse of `apply`: it removes the four role bindings, any
+family role binding and its role definition, and deletes the
+notification channel. The channel resource is configured
 with `force_delete = true` for the same reason
 `revoke-bobbin-access.sh` always deletes with `--force`: Cloud Monitoring
 refuses to delete a channel still referenced by an alert policy, and the

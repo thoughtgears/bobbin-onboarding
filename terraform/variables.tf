@@ -51,3 +51,30 @@ variable "channel_display_name" {
   type        = string
   default     = "Bobbin (@bobby)"
 }
+
+variable "families" {
+  description = <<-EOT
+    Optional. The services whose SETTINGS Bobbin may read as well as
+    their telemetry — one custom, read-only role per family, defined in
+    each project and bound to tenant_service_account. Empty (the default)
+    applies exactly the four roles above and nothing else. Each family
+    maps to one role holding exactly the get/list permissions the
+    product's tool calls (see local.family_roles in main.tf):
+      managed-sql -> bobbinManagedSqlConfigViewer  (Cloud SQL settings and flags)
+      cache       -> bobbinCacheConfigViewer       (Memorystore settings)
+      kubernetes  -> bobbinKubernetesConfigViewer  (GKE cluster settings from the GKE API — never the cluster)
+      compute     -> bobbinComputeConfigViewer     (Compute Engine instance and group settings)
+      networking  -> bobbinNetworkingConfigViewer  (load balancer backend health and configuration)
+    Defining a role needs iam.roles.create on the project.
+  EOT
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for family in var.families :
+      contains(["managed-sql", "cache", "kubernetes", "compute", "networking"], family)
+    ])
+    error_message = "families must be a subset of: managed-sql, cache, kubernetes, compute, networking."
+  }
+}

@@ -6,13 +6,37 @@ reconstructed from `git log` where it fell behind.
 A tag here is meant to be the `ref` you pin in the Terraform module's
 GitHub source
 (`github.com/thoughtgears/bobbin-onboarding//terraform?ref=vX.Y.Z`).
-**No tag has been cut yet** — `v0.1.0` below is the version the unreleased
-work is heading for, not something you can resolve. Until it exists, pin a
-commit SHA: `?ref=<full sha>` accepts one, and it is immutable in exactly
-the way the advice cares about. See
+`v0.2.0` is the first tag ever cut here (2026-09-14). Everything below it
+is reconstructed history: `v0.1.0` names the state the repository was in
+before the family roles landed, and is **not** a tag you can resolve —
+nothing was tagged at the time. A commit SHA works as a `ref` too, and is
+immutable in exactly the way the advice cares about. See
 [`terraform/README.md`](terraform/README.md#usage).
 
-## [Unreleased] — v0.1.0
+## v0.2.0 — 2026-09-14
+
+### Added
+
+- **Optional configuration roles, one per service** (ADR-0055 in the
+  product repo). `grant-bobbin-access.sh --family <name>` (repeatable),
+  the module's `families` input, and a by-hand section in
+  [`docs/granting-access.md`](docs/granting-access.md). Each is a custom
+  role defined in your project holding exactly the `get`/`list`
+  permissions the product's tool calls: `managed-sql`, `cache`,
+  `kubernetes`, `compute`, `networking`. Without the flag or the input,
+  both paths do exactly what v0.1.0 did.
+- `revoke-bobbin-access.sh` now removes any family role binding and
+  deletes the role definition, unconditionally — nothing of ours is
+  left in your project.
+- Module outputs: `granted_roles` includes the family roles;
+  `family_roles` lists each definition and its permissions.
+
+### Noted
+
+- For GKE the role is `container.clusters.get` and `.list` — the GKE API
+  only. Bobbin never connects to your cluster.
+
+## v0.1.0
 
 ### Fixed
 
@@ -28,7 +52,7 @@ the way the advice cares about. See
   reads through the same permission to answer "what changed" when the
   cause was a config or IAM change rather than a deploy. No permission
   changed; the disclosure did.
-- The Terraform usage example pinned `?ref=v0.1.0`. There are no tags, so
+- The Terraform usage example pinned `?ref=v0.1.0`. There were no tags, so
   `terraform init` could not resolve it. The example now pins a commit
   SHA, which is immutable today and needs no release cut first.
 - `revoke-bobbin-access.sh` printed the deleted-service-account member

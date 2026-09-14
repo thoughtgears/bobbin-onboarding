@@ -19,9 +19,15 @@ Four Google-managed **read-only** roles, on the projects you choose:
 | `roles/errorreporting.viewer` | Error groups |
 | `roles/run.viewer` | Cloud Run service and revision configuration |
 
-That is the complete list. Bobbin cannot change anything in your project,
-and asks for no role that would let it. It reads at the moment an alert
-fires and keeps no copy of your telemetry.
+That is the complete list for reading telemetry. Bobbin cannot change
+anything in your project, and asks for no role that would let it. It
+reads at the moment an alert fires and keeps no copy of your telemetry.
+
+Optionally, per service you name, **one more read-only role** lets Bobbin
+read that service's settings as well — a custom role holding exactly the
+`get`/`list` permissions its tool calls, deleted again by the revoke
+script. For GKE that is the GKE API and never the cluster. See
+[Optional: a configuration role per service](docs/granting-access.md#optional-a-configuration-role-per-service).
 
 The audit-log half of `logging.viewer` is worth calling out rather than
 leaving you to infer it from the role name. When an incident was caused by
@@ -75,8 +81,9 @@ roles, no `gcloud` required.
 ./revoke-bobbin-access.sh --tenant-sa "<…>" --project "<…>" --dry-run
 ```
 
-The exact reverse of the grant, and readable the same way. Details in
-[granting access](docs/granting-access.md). Used the Terraform module
+The exact reverse of the grant, and readable the same way — including
+deleting any optional family role it finds, whether or not you name one.
+Details in [granting access](docs/granting-access.md). Used the Terraform module
 instead? `terraform destroy` is the exact reverse there — see
 [`terraform/README.md`](terraform/README.md#removing-bobbin). Either way,
 nothing else of ours exists in your project.

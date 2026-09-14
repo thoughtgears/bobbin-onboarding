@@ -1,9 +1,10 @@
 # Granting Bobbin read-only access
 
-_Bobbin receives four viewer roles and nothing else — it can never change
-anything in your project. `./grant-bobbin-access.sh` does exactly what is
-written here, one command for one step, so you can check it against this
-page before running it._
+_Bobbin receives four viewer roles — and, per service you name, one more
+read-only role only if you choose to give it. It can never change anything
+in your project. `./grant-bobbin-access.sh` does exactly what is written
+here, one command for one step, so you can check it against this page
+before running it._
 
 You will have received two values from us during onboarding:
 
@@ -127,6 +128,89 @@ Add the "Bobbin (@bobby)" channel to any alert policy you want
 investigated — or all of them. One incident becomes one investigation
 in one Slack thread (storms fold; no channel spam).
 
+## Optional: a configuration role per service
+
+The four roles read telemetry — logs, metrics, error groups, Cloud Run
+revisions — and only telemetry. Some questions are not in the telemetry:
+a PostgreSQL instance pinned at 100 connections is either under load or
+at a `max_connections` of 100, and that flag lives in the instance's
+settings. Bobby reports what he saw and says what would confirm it; he
+does not guess.
+
+For each service below, **one more read-only role** lets him read the
+settings as well. It is optional — nothing stops working without it and
+Bobby never asks for it in advance — and it is **per service**: the role
+reads the configuration of the service the alert was about, never the
+project. Each is a **custom role defined in your project** holding
+exactly the `get`/`list` permissions the tool behind it calls, because
+Google's predefined viewers for these services carry verbs that are not
+reads (`roles/cloudsql.viewer` can export the database,
+`roles/compute.viewer` can read a VM's serial console,
+`roles/container.clusterViewer` can connect to a cluster).
+
+| `--family`    | Role id                        | Reads                                                                                              | Cannot                                                                                   |
+| ------------- | ------------------------------ | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `managed-sql` | `bobbinManagedSqlConfigViewer` | Cloud SQL instance settings and database flags                                                     | change them, read or export any data, connect, or log in                                 |
+| `cache`       | `bobbinCacheConfigViewer`      | Memorystore (Redis, Valkey, Memcached) instance settings                                           | change them, read cached data, or connect                                                |
+| `kubernetes`  | `bobbinKubernetesConfigViewer` | GKE cluster settings from the GKE API (`container.clusters.get`, `.list`)                          | change them, or **connect to the cluster at all** — no pod, workload, ConfigMap or Secret |
+| `compute`     | `bobbinComputeConfigViewer`    | Compute Engine instance, managed instance group and autoscaler settings, recent zone operations    | change them, or read the serial console, screenshots, metadata or startup scripts        |
+| `networking`  | `bobbinNetworkingConfigViewer` | load balancer backend health with the reason, timeouts, balancing mode, health checks, URL maps    | change them, or read instance internals                                                  |
+
+The exact permission list of each role is the `family_permissions` table
+in [`../grant-bobbin-access.sh`](../grant-bobbin-access.sh) and
+`local.family_roles` in [`../terraform/main.tf`](../terraform/main.tf);
+they are the same list, and the product's own test suite asserts that
+list equals what its tool calls.
+
+**GKE, plainly:** Bobbin reads the GKE API and Cloud Logging and never
+connects to your cluster's control plane — not with this role, not with
+any other. The GKE API has no pods, Deployments, ConfigMaps or Secrets;
+those live behind your cluster's API server, and that is a door Bobbin
+does not have a key to.
+
+### By script
+
+One repeatable flag. Without it the script does exactly what it does
+above; with it, after the four roles, it defines the role (or updates an
+older definition to this list) and binds it:
+
+```bash
+./grant-bobbin-access.sh \
+  --tenant-sa "$TENANT_SA" --topic "$TOPIC" \
+  --project "$PROJECT_ID" --family managed-sql --dry-run
+```
+
+### By hand
+
+```bash
+gcloud iam roles create bobbinManagedSqlConfigViewer --project "$PROJECT_ID" \
+  --title "Bobbin Cloud SQL configuration viewer" --stage GA \
+  --permissions cloudsql.instances.get,cloudsql.instances.list
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member "serviceAccount:$TENANT_SA" \
+  --role "projects/$PROJECT_ID/roles/bobbinManagedSqlConfigViewer" --condition=None
+```
+
+**Success looks like:** `roles create` prints the role with its
+`includedPermissions`, and the binding command prints the policy with a
+line for `serviceAccount:$TENANT_SA` under
+`projects/$PROJECT_ID/roles/bobbinManagedSqlConfigViewer`.
+
+**The gotcha:** defining a custom role needs `iam.roles.create` on the
+project, which `roles/resourcemanager.projectIamAdmin` does **not**
+carry (`roles/iam.roleAdmin` and `roles/owner` do). The account that
+granted the four roles is frequently not one that can define a fifth.
+Nothing is half-done if that step is refused: the four roles and the
+channel are in place, and re-running with `--family` as someone who
+holds `roles/iam.roleAdmin` picks up there.
+
+### With Terraform
+
+The module's `families` input — see
+[`../terraform/README.md`](../terraform/README.md). Your next `plan`
+shows one role definition and one binding per project and family, and
+nothing else.
+
 ## Removing access
 
 ```bash
@@ -138,9 +222,12 @@ in one Slack thread (storms fold; no channel spam).
 
 Same contract as the grant: `--dry-run` prints every command and changes
 nothing, and it calls nothing but `gcloud`. It removes the four role
-bindings and deletes the notification channel. Your alert policies are
-left alone — you wrote them, and they keep working with whatever other
-channels they have.
+bindings, removes any optional family role binding **and deletes the
+role definition** — whether or not you pass `--family`, because
+revocation should not require you to remember what you granted — and
+deletes the notification channel. Your alert policies are left alone —
+you wrote them, and they keep working with whatever other channels they
+have.
 
 **You do not have to run it for your data to be deleted.** Our half of the
 teardown — the service account that could read your projects, your stored

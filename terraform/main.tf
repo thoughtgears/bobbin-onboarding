@@ -1,7 +1,9 @@
 # Applies exactly the grants in ../docs/granting-access.md and
 # ../grant-bobbin-access.sh — no more. Read those first; this module is
 # the third rendering of the same steps (ADR-0003 in the product repo),
-# not a different decision about what Bobbin gets.
+# not a different decision about what Bobbin gets. `var.families` is the
+# script's `--family`: optional, empty by default, one more read-only
+# custom role per service you name (ADR-0055 in the product repo).
 #
 # What this module does NOT do, deliberately:
 #   - it never touches the tenant topic's IAM policy. Granting the
@@ -33,6 +35,67 @@ locals {
       role       = pair[1]
     }
   }
+
+  # The OPTIONAL family roles — the same table as grant-bobbin-access.sh's
+  # family_permissions and FAMILY_GRANTS in the product repo
+  # (packages/control/src/grants.ts), which the product's pre-flight and
+  # verifier check against. Every permission is a get or a list; that is
+  # the whole reason these are custom roles rather than Google's
+  # predefined viewers (cloudsql.viewer can export the database,
+  # compute.viewer can read a VM's serial console, container.clusterViewer
+  # can connect to the cluster). Keep the three in step.
+  family_roles = {
+    "managed-sql" = {
+      role_id     = "bobbinManagedSqlConfigViewer"
+      title       = "Bobbin Cloud SQL configuration viewer"
+      permissions = ["cloudsql.instances.get", "cloudsql.instances.list"]
+    }
+    "cache" = {
+      role_id = "bobbinCacheConfigViewer"
+      title   = "Bobbin Memorystore configuration viewer"
+      permissions = [
+        "redis.instances.get", "redis.instances.list",
+        "memorystore.instances.get", "memorystore.instances.list",
+        "memcache.instances.get", "memcache.instances.list",
+      ]
+    }
+    # The GKE API only — container.clusters.get and .list. Bobbin never
+    # connects to your cluster, so no permission that reaches it is here.
+    "kubernetes" = {
+      role_id     = "bobbinKubernetesConfigViewer"
+      title       = "Bobbin GKE configuration viewer"
+      permissions = ["container.clusters.get", "container.clusters.list"]
+    }
+    "compute" = {
+      role_id = "bobbinComputeConfigViewer"
+      title   = "Bobbin Compute Engine configuration viewer"
+      permissions = [
+        "compute.instances.get", "compute.instances.list",
+        "compute.instanceGroupManagers.list", "compute.autoscalers.list",
+        "compute.zoneOperations.list",
+      ]
+    }
+    "networking" = {
+      role_id = "bobbinNetworkingConfigViewer"
+      title   = "Bobbin load balancing configuration viewer"
+      permissions = [
+        "compute.backendServices.get", "compute.backendServices.list",
+        "compute.regionBackendServices.get", "compute.regionBackendServices.list",
+        "compute.urlMaps.list", "compute.regionUrlMaps.list",
+        "compute.healthChecks.get", "compute.regionHealthChecks.get",
+      ]
+    }
+  }
+
+  # One role definition and one binding per (project, family) the
+  # customer named. Nothing is created for a family not in var.families.
+  project_family_roles = {
+    for pair in setproduct(var.project_ids, var.families) :
+    "${pair[0]}/${pair[1]}" => {
+      project_id = pair[0]
+      family     = pair[1]
+    }
+  }
 }
 
 # Additive per-member bindings, not authoritative role bindings — the
@@ -48,6 +111,30 @@ resource "google_project_iam_member" "bobbin_viewer" {
 
   # `--condition=None` in the script and the doc means "no IAM
   # condition" — the default for this resource when condition is unset.
+}
+
+# The optional family roles (docs/granting-access.md § Optional): the
+# definition first, then an additive binding that references it so the
+# plan orders them. `terraform destroy` removes both — the module is the
+# exact reverse of itself, and a role definition is the one artefact of
+# ours a grant would otherwise leave in the project.
+resource "google_project_iam_custom_role" "bobbin" {
+  for_each = local.project_family_roles
+
+  project     = each.value.project_id
+  role_id     = local.family_roles[each.value.family].role_id
+  title       = local.family_roles[each.value.family].title
+  description = "Read-only: what Bobbin's ${each.value.family} configuration tool calls, and nothing else. Managed by the bobbin-onboarding Terraform module."
+  permissions = local.family_roles[each.value.family].permissions
+  stage       = "GA"
+}
+
+resource "google_project_iam_member" "bobbin_family" {
+  for_each = local.project_family_roles
+
+  project = each.value.project_id
+  role    = google_project_iam_custom_role.bobbin[each.key].name
+  member  = "serviceAccount:${var.tenant_service_account}"
 }
 
 # Step 2 of the doc/script: one Pub/Sub-type notification channel per

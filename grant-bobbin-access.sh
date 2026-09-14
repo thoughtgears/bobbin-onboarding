@@ -18,6 +18,45 @@
 # All four are read-only Google-managed roles. Bobbin cannot change
 # anything in your project, and asks for no role that would let it.
 #
+# Optionally, per service you name with --family, one more read-only
+# role. Each is a CUSTOM role, defined in your project by this script,
+# holding exactly the get/list permissions the tool behind it calls and
+# nothing else (the product's own test suite asserts that). Google's
+# predefined viewers for these services carry verbs that are not reads
+# (cloudsql.viewer can export the database, compute.viewer can read a
+# VM's serial console), which is why Bobbin defines its own:
+#
+#   --family managed-sql   bobbinManagedSqlConfigViewer
+#                          reads Cloud SQL instance settings and database
+#                          flags; cannot change them, read or export data,
+#                          connect, or log in
+#   --family cache         bobbinCacheConfigViewer
+#                          reads Memorystore (Redis, Valkey, Memcached)
+#                          instance settings; cannot change them, read
+#                          cached data, or connect
+#   --family kubernetes    bobbinKubernetesConfigViewer
+#                          reads GKE cluster settings from the GKE API —
+#                          container.clusters.get and .list, NOTHING that
+#                          reaches the cluster: Bobbin never connects to
+#                          your kube-apiserver, so no pod, workload,
+#                          ConfigMap, Secret or token is ever readable
+#   --family compute       bobbinComputeConfigViewer
+#                          reads Compute Engine instance, managed instance
+#                          group and autoscaler settings; cannot read the
+#                          serial console, screenshots, metadata or
+#                          startup scripts
+#   --family networking    bobbinNetworkingConfigViewer
+#                          reads load balancer backend health and
+#                          configuration; cannot read instance internals
+#
+# Without --family the script does exactly what it always did. With it,
+# after the four, it defines the role (or updates it to this list) and
+# binds it. Defining a role needs iam.roles.create on the project, which
+# roles/resourcemanager.projectIamAdmin does NOT carry (roles/iam.roleAdmin
+# does) — if that step is refused, the person who can bind is not the
+# person who can define, and the script says so. revoke-bobbin-access.sh
+# deletes these roles again, whether or not you pass --family.
+#
 # Run with --dry-run first. It prints every command and changes nothing.
 
 set -euo pipefail
@@ -29,12 +68,50 @@ readonly ROLES=(
   roles/run.viewer
 )
 
+# One entry per optional family: the role id, then the permissions the
+# product's tool calls — every one a get or a list. KEEP IN STEP with
+# FAMILY_GRANTS in the product repo (packages/control/src/grants.ts):
+# that table is what the pre-flight and the verifier check, and a role
+# defined here with a different list would verify against the wrong
+# thing. The permission strings are read from Google's method reference
+# pages; none is from memory.
+readonly FAMILY_NAMES=(managed-sql cache kubernetes compute networking)
+family_role_id() {
+  case "$1" in
+    managed-sql) printf 'bobbinManagedSqlConfigViewer' ;;
+    cache)       printf 'bobbinCacheConfigViewer' ;;
+    kubernetes)  printf 'bobbinKubernetesConfigViewer' ;;
+    compute)     printf 'bobbinComputeConfigViewer' ;;
+    networking)  printf 'bobbinNetworkingConfigViewer' ;;
+    *)           return 1 ;;
+  esac
+}
+family_role_title() {
+  case "$1" in
+    managed-sql) printf 'Bobbin Cloud SQL configuration viewer' ;;
+    cache)       printf 'Bobbin Memorystore configuration viewer' ;;
+    kubernetes)  printf 'Bobbin GKE configuration viewer' ;;
+    compute)     printf 'Bobbin Compute Engine configuration viewer' ;;
+    networking)  printf 'Bobbin load balancing configuration viewer' ;;
+  esac
+}
+family_permissions() {
+  case "$1" in
+    managed-sql) printf 'cloudsql.instances.get,cloudsql.instances.list' ;;
+    cache)       printf 'redis.instances.get,redis.instances.list,memorystore.instances.get,memorystore.instances.list,memcache.instances.get,memcache.instances.list' ;;
+    kubernetes)  printf 'container.clusters.get,container.clusters.list' ;;
+    compute)     printf 'compute.instances.get,compute.instances.list,compute.instanceGroupManagers.list,compute.autoscalers.list,compute.zoneOperations.list' ;;
+    networking)  printf 'compute.backendServices.get,compute.backendServices.list,compute.regionBackendServices.get,compute.regionBackendServices.list,compute.urlMaps.list,compute.regionUrlMaps.list,compute.healthChecks.get,compute.regionHealthChecks.get' ;;
+  esac
+}
+
 readonly CHANNEL_NAME="Bobbin (@bobby)"
 readonly DOMAIN_POLICY_DOCS="https://cloud.google.com/resource-manager/docs/organization-policy/restricting-domains"
 
 TENANT_SA=""
 TOPIC=""
 PROJECTS=()
+FAMILIES=()
 DRY_RUN=false
 ASSUME_YES=false
 
@@ -89,19 +166,34 @@ usage() {
 Usage:
   grant-bobbin-access.sh --tenant-sa <SA_EMAIL> --topic <TOPIC> \
                          --project <PROJECT_ID> [--project <PROJECT_ID> ...]
-                         [--dry-run] [--yes]
+                         [--family <NAME> ...] [--dry-run] [--yes]
 
   --tenant-sa   The service account we gave you, e.g.
                 tenant-acme@bobbin-shard-N.iam.gserviceaccount.com
   --topic       Your alert intake topic, e.g.
                 projects/bobbin-hub-N/topics/tenant-acme-alerts
   --project     A project Bobbin should investigate. Repeat for several.
+  --family      Optional. One more read-only role for one service's
+                settings: managed-sql, cache, kubernetes, compute or
+                networking. Repeat for several. See the header.
   --dry-run     Print every command without running it. Do this first.
   --yes         Skip the confirmation prompt (for reruns).
 
 Both values come from Bobbin during onboarding. If you do not have them,
 stop — this script cannot be used without them.
 USAGE
+}
+
+explain_role_admin() {
+  cat <<'MSG'
+
+  Defining a custom role needs iam.roles.create on the project, which
+  roles/resourcemanager.projectIamAdmin does NOT carry (roles/iam.roleAdmin
+  and roles/owner do). The account that could bind the four roles is
+  frequently not one that can define a fifth. Nothing is half-done: the
+  four roles and the channel are in place, and re-running this script
+  with --family as someone who holds roles/iam.roleAdmin picks up here.
+MSG
 }
 
 explain_domain_policy() {
@@ -124,6 +216,7 @@ while [[ $# -gt 0 ]]; do
     --tenant-sa) TENANT_SA="${2:-}"; shift 2 ;;
     --topic)     TOPIC="${2:-}"; shift 2 ;;
     --project)   PROJECTS+=("${2:-}"); shift 2 ;;
+    --family)    FAMILIES+=("${2:-}"); shift 2 ;;
     --dry-run)   DRY_RUN=true; shift ;;
     --yes)       ASSUME_YES=true; shift ;;
     -h|--help)   usage; exit 0 ;;
@@ -134,6 +227,10 @@ done
 [[ -n "$TENANT_SA" ]] || { usage; die "--tenant-sa is required"; }
 [[ -n "$TOPIC" ]] || { usage; die "--topic is required"; }
 [[ ${#PROJECTS[@]} -gt 0 ]] || { usage; die "at least one --project is required"; }
+for family in "${FAMILIES[@]}"; do
+  family_role_id "$family" >/dev/null \
+    || die "--family must be one of: ${FAMILY_NAMES[*]} (got: $family)"
+done
 
 [[ "$TENANT_SA" == *@*.iam.gserviceaccount.com ]] \
   || die "--tenant-sa does not look like a service account: $TENANT_SA"
@@ -157,6 +254,15 @@ note "On each project, grant that service account these four roles:"
 for role in "${ROLES[@]}"; do note "  $role"; done
 note ""
 note "…and create one Pub/Sub notification channel named \"$CHANNEL_NAME\"."
+if [[ ${#FAMILIES[@]} -gt 0 ]]; then
+  note ""
+  note "Optionally, per service you named with --family, one more read-only role,"
+  note "defined in the project with exactly these permissions and then bound:"
+  for family in "${FAMILIES[@]}"; do
+    note "  $(family_role_id "$family")  ($family)"
+    note "    $(family_permissions "$family" | tr ',' ' ')"
+  done
+fi
 note "Nothing else. No write access is requested and none is granted."
 
 if [[ "$DRY_RUN" == true ]]; then
@@ -200,6 +306,54 @@ for project in "${PROJECTS[@]}"; do
   done
   rm -f "$errfile"
   did "granted ${#ROLES[@]} read-only roles" "grant ${#ROLES[@]} read-only roles"
+
+  # The optional family roles, after the four. Each is a CUSTOM role, so
+  # it has to exist before it can be bound: `roles describe` says
+  # whether it does, `roles create` defines it, and `roles update`
+  # brings an older definition up to this list — Bobbin's definition is
+  # authoritative for Bobbin's role, and re-running with the same list
+  # is a no-op. A deleted role's id is reserved for seven days;
+  # `roles undelete` brings it back rather than failing on the id.
+  #
+  # Defining a role is the one step here that needs iam.roles.create,
+  # which the person holding setIamPolicy does not necessarily hold —
+  # so its refusal is explained rather than left as a raw error.
+  for family in "${FAMILIES[@]}"; do
+    role_id=$(family_role_id "$family")
+    permissions=$(family_permissions "$family")
+    errfile=$(mktemp)
+    if gcloud iam roles describe "$role_id" --project "$project" --format='value(deleted)' >"$errfile" 2>/dev/null; then
+      if [[ "$(cat "$errfile")" == "True" ]]; then
+        run gcloud iam roles undelete "$role_id" --project "$project"
+      fi
+      if ! run gcloud iam roles update "$role_id" --project "$project" \
+        --permissions "$permissions" --stage GA 2>"$errfile"; then
+        printf '\n%s\n' "$(cat "$errfile")" >&2
+        explain_role_admin >&2
+        die "updating role $role_id on $project failed — see above"
+      fi
+      did "role $role_id is defined (updated to this list if it differed)" "define or update role $role_id"
+    else
+      if ! run gcloud iam roles create "$role_id" --project "$project" \
+        --title "$(family_role_title "$family")" \
+        --description "Read-only: what Bobbin's $family configuration tool calls, and nothing else. revoke-bobbin-access.sh deletes it." \
+        --permissions "$permissions" --stage GA 2>"$errfile"; then
+        printf '\n%s\n' "$(cat "$errfile")" >&2
+        explain_role_admin >&2
+        die "creating role $role_id on $project failed — see above"
+      fi
+      did "defined role $role_id" "define role $role_id"
+    fi
+    rm -f "$errfile"
+
+    if ! run gcloud projects add-iam-policy-binding "$project" \
+      --member "serviceAccount:$TENANT_SA" \
+      --role "projects/$project/roles/$role_id" \
+      --condition=None 2>/dev/null; then
+      die "binding $role_id on $project failed"
+    fi
+    did "bound $role_id ($family)" "bind $role_id ($family)"
+  done
 
   # Channel creation is NOT idempotent — creating twice gives two channels
   # and two notifications per alert, so this check is load-bearing.
@@ -249,8 +403,9 @@ cat <<EOF
   becomes one investigation in one Slack thread; storms fold together
   rather than spamming the channel.
 
-  To remove Bobbin entirely: reverse the grants with
-  'gcloud projects remove-iam-policy-binding' for the four roles above,
-  and delete the notification channel. Nothing else exists on your side.
+  To remove Bobbin entirely: run revoke-bobbin-access.sh, which reverses
+  the four role bindings, removes any optional family role and deletes
+  its definition, and deletes the notification channel. Nothing else
+  exists on your side.
 
 EOF

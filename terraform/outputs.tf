@@ -12,10 +12,27 @@ output "notification_channel_ids" {
 
 output "granted_roles" {
   description = <<-EOT
-    The exact roles this module grants to tenant_service_account. This
-    is the complete access list — nothing else is ever requested.
+    The exact roles this module grants to tenant_service_account: the
+    four viewer roles, plus one custom role per family in var.families
+    (by its project-scoped name). This is the complete access list —
+    nothing else is ever requested.
   EOT
-  value       = local.roles
+  value = concat(
+    local.roles,
+    sort([for binding in google_project_iam_member.bobbin_family : binding.role]),
+  )
+}
+
+output "family_roles" {
+  description = <<-EOT
+    The custom roles this module defined, per project and family, with
+    their permission lists — every one a get or a list. Empty when
+    var.families is empty. For your own verification.
+  EOT
+  value = {
+    for key, role in google_project_iam_custom_role.bobbin :
+    key => { name = role.name, permissions = role.permissions }
+  }
 }
 
 output "project_numbers" {

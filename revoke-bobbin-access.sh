@@ -13,7 +13,14 @@
 #   roles/monitoring.viewer      removed
 #   roles/errorreporting.viewer  removed
 #   roles/run.viewer             removed
+#   any optional family role (bobbin*ConfigViewer) — its binding removed
+#     AND its definition deleted, so no artefact of ours is left
 #   the "Bobbin (@bobby)" Pub/Sub notification channel  deleted
+#
+# The family roles are removed UNCONDITIONALLY — there is no --family
+# here — because revocation should not require you to remember what you
+# granted. The script reads your live policy and removes whatever of
+# ours is actually there.
 #
 # Deleting that channel also UNLINKS it from any alert policy that used
 # it — Cloud Monitoring refuses to delete a referenced channel, so the
@@ -41,6 +48,17 @@ readonly ROLES=(
   roles/monitoring.viewer
   roles/errorreporting.viewer
   roles/run.viewer
+)
+
+# The optional family roles grant-bobbin-access.sh can define. Kept in
+# step with that script's family_role_id, and with FAMILY_GRANTS in the
+# product repo. Every one is deleted here if it exists.
+readonly FAMILY_ROLE_IDS=(
+  bobbinManagedSqlConfigViewer
+  bobbinCacheConfigViewer
+  bobbinKubernetesConfigViewer
+  bobbinComputeConfigViewer
+  bobbinNetworkingConfigViewer
 )
 
 TENANT_SA=""
@@ -133,6 +151,9 @@ note ""
 note "On each project, remove that service account from these four roles:"
 for role in "${ROLES[@]}"; do note "  $role"; done
 note ""
+note "…remove and delete any optional family role Bobbin defined:"
+for role_id in "${FAMILY_ROLE_IDS[@]}"; do note "  $role_id"; done
+note ""
 note "…and delete the Bobbin notification channel."
 note "Your alert policies are kept — they only lose Bobbin as a target."
 
@@ -184,9 +205,26 @@ for project in "${PROJECTS[@]}"; do
         run gcloud projects remove-iam-policy-binding "$project" \
           --member "$member" --role "$role" --condition=None 2>/dev/null || true
       done
+      for role_id in "${FAMILY_ROLE_IDS[@]}"; do
+        run gcloud projects remove-iam-policy-binding "$project" \
+          --member "$member" --role "projects/$project/roles/$role_id" --condition=None 2>/dev/null || true
+      done
     done
-    note "removed Bobbin from ${#ROLES[@]} roles"
+    note "removed Bobbin from ${#ROLES[@]} roles and any family role"
   fi
+
+  # The role DEFINITIONS, after the bindings. A custom role Bobbin
+  # defined is the one artefact of ours a grant leaves behind, and
+  # "nothing else of ours exists in your project" is only true once it
+  # is gone. Google keeps a deleted role recoverable for seven days —
+  # that is theirs, not ours, and grant-bobbin-access.sh undeletes it
+  # rather than failing if you come back inside the window.
+  for role_id in "${FAMILY_ROLE_IDS[@]}"; do
+    if gcloud iam roles describe "$role_id" --project "$project" --format='value(name)' >/dev/null 2>&1; then
+      run gcloud iam roles delete "$role_id" --project "$project"
+      note "deleted role definition $role_id"
+    fi
+  done
 
   # Matched in bash, NOT via `gcloud --filter`. Filtering this resource
   # silently returns nothing — even `--filter=type=pubsub` matches zero

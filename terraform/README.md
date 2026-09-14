@@ -16,7 +16,7 @@ On every project you list, this module:
 
 | Role | What it reads |
 | --- | --- |
-| `roles/logging.viewer` | Log entries |
+| `roles/logging.viewer` | Log entries, and the Admin Activity audit log |
 | `roles/monitoring.viewer` | Metrics and alert policies |
 | `roles/errorreporting.viewer` | Error groups |
 | `roles/run.viewer` | Cloud Run service and revision configuration |
@@ -54,9 +54,13 @@ output "bobbin_project_numbers" {
 }
 ```
 
-Pin `ref` to a tag (see [`../CHANGELOG.md`](../CHANGELOG.md) for what
-changed at each one) rather than tracking a branch, so an upstream change
-never lands in your plan unannounced.
+**Pin `ref` to a tag rather than tracking a branch**, so an upstream
+change never lands in your plan unannounced. `v0.2.0` is the current
+release; [`../CHANGELOG.md`](../CHANGELOG.md) says what changed at each
+tag.
+
+A commit SHA works too and is equally immutable, if you would rather not
+trust that a tag stays put.
 
 A working, minimal root module is in
 [`../examples/single-project`](../examples/single-project).
@@ -76,8 +80,8 @@ A working, minimal root module is in
 | Name | Description |
 | --- | --- |
 | `notification_channel_ids` | Map of `project_id => notification channel resource name` (`projects/<id>/notificationChannels/<n>`). Attach these to the alert policies you want investigated. |
-| `granted_roles` | The exact roles granted — the four, plus one custom role per project and family — the complete access list, for your own verification. |
-| `family_roles` | The custom roles this module defined, per project and family, with their permission lists. Empty when `families` is empty. |
+| `granted_roles` | Every role granted — the four, plus one custom role per project and family. The complete access list, to check for yourself. |
+| `family_roles` | The custom roles this module defined, per project and family, with their permissions. Empty when `families` is. |
 | `project_numbers` | Map of `project_id => project number`. Send these to Bobbin: see "What it applies" above. |
 
 ## The known gotcha: domain-restricted sharing

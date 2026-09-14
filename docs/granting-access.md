@@ -64,6 +64,15 @@ done
 
 That is the complete access list. No write role is ever requested.
 
+`roles/logging.viewer` covers your Admin Activity audit log as well as your
+service logs, and Bobbin reads both — the audit log is the only place that
+says an incident was caused by a configuration or IAM change rather than a
+deploy, so it records what changed, when, and who changed it. That is
+`logging.logEntries.list`, which the role already grants; it is not an
+extra permission, only a use of it you should know about. Data Access audit
+logs need `logging.privateLogEntries.list`, which is not in this list and
+is never requested.
+
 **Success looks like:** each of the four commands prints the project's
 updated IAM policy, ending in a line for `serviceAccount:$TENANT_SA`
 under the role you just granted. To check all four landed in one go:

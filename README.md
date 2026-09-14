@@ -14,7 +14,7 @@ Four Google-managed **read-only** roles, on the projects you choose:
 
 | Role | What it reads |
 | --- | --- |
-| `roles/logging.viewer` | Log entries |
+| `roles/logging.viewer` | Log entries, and the Admin Activity audit log |
 | `roles/monitoring.viewer` | Metrics and alert policies |
 | `roles/errorreporting.viewer` | Error groups |
 | `roles/run.viewer` | Cloud Run service and revision configuration |
@@ -29,6 +29,16 @@ read that service's settings as well — a custom role holding exactly the
 script. For GKE that is the GKE API and never the cluster. See
 [Optional: a configuration role per service](docs/granting-access.md#optional-a-configuration-role-per-service).
 
+The audit-log half of `logging.viewer` is worth calling out rather than
+leaving you to infer it from the role name. When an incident was caused by
+a configuration or IAM change rather than a deploy, the only place that
+says so is your Admin Activity audit log, so Bobbin reads it: what changed,
+when, and the email address of whoever changed it. It is the same
+`logging.logEntries.list` the role already grants — no extra permission —
+but it is a different sentence, and you should have it before you run
+anything. Data Access audit logs are a separate permission
+(`logging.privateLogEntries.list`) and Bobbin is never granted it.
+
 ## The two halves
 
 Connecting Bobbin has a GCP half and a Slack half. They are independent —
@@ -42,8 +52,8 @@ do them in either order.
      auditable script; the default on a live onboarding call
    - **[`terraform/`](terraform/)** — a plain-HCL module, for IaC-native
      shops that would rather `plan` and `apply` than run bash
-2. **[Slack setup](docs/slack-setup.md)** — install the Bobbin app in
-   your workspace and choose a channel.
+2. **[Slack setup](docs/slack-setup.md)** — click **Add to Slack** in
+   your console and choose a channel on Slack's own consent screen.
 
 ## Start here
 

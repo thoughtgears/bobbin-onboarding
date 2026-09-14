@@ -6,11 +6,9 @@ reconstructed from `git log` where it fell behind.
 A tag here is meant to be the `ref` you pin in the Terraform module's
 GitHub source
 (`github.com/thoughtgears/bobbin-onboarding//terraform?ref=vX.Y.Z`).
-`v0.2.0` is the first tag ever cut here (2026-09-14). Everything below it
-is reconstructed history: `v0.1.0` names the state the repository was in
-before the family roles landed, and is **not** a tag you can resolve —
-nothing was tagged at the time. A commit SHA works as a `ref` too, and is
-immutable in exactly the way the advice cares about. See
+Both `v0.1.0` (2026-09-09) and `v0.2.0` (2026-09-14) are real tags you can
+pin. A commit SHA works as a `ref` too, and is immutable in exactly the
+way the advice cares about. See
 [`terraform/README.md`](terraform/README.md#usage).
 
 ## v0.2.0 — 2026-09-14
@@ -52,7 +50,8 @@ immutable in exactly the way the advice cares about. See
   reads through the same permission to answer "what changed" when the
   cause was a config or IAM change rather than a deploy. No permission
   changed; the disclosure did.
-- The Terraform usage example pinned `?ref=v0.1.0`. There were no tags, so
+- The Terraform usage example pinned `?ref=v0.1.0` before that tag
+  existed, so
   `terraform init` could not resolve it. The example now pins a commit
   SHA, which is immutable today and needs no release cut first.
 - `revoke-bobbin-access.sh` printed the deleted-service-account member

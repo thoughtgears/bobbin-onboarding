@@ -73,6 +73,14 @@ extra permission, only a use of it you should know about. Data Access audit
 logs need `logging.privateLogEntries.list`, which is not in this list and
 is never requested.
 
+`roles/run.viewer` returns the full service and revision spec, and that
+includes the **literal value of every environment variable** set on a
+revision. Bobbin reads variable names only and never persists a value —
+the schema it parses the response with has no `value` field, and a test
+asserts none reaches the model or the transcript — but the permission
+allows reading them. If you keep secrets in plain environment variables
+rather than Secret Manager references, know that before you grant it.
+
 **Success looks like:** each of the four commands prints the project's
 updated IAM policy, ending in a line for `serviceAccount:$TENANT_SA`
 under the role you just granted. To check all four landed in one go:
@@ -152,8 +160,8 @@ reads (`roles/cloudsql.viewer` can export the database,
 | ------------- | ------------------------------ | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `managed-sql` | `bobbinManagedSqlConfigViewer` | Cloud SQL instance settings and database flags                                                     | change them, read or export any data, connect, or log in                                 |
 | `cache`       | `bobbinCacheConfigViewer`      | Memorystore (Redis, Valkey, Memcached) instance settings                                           | change them, read cached data, or connect                                                |
-| `kubernetes`  | `bobbinKubernetesConfigViewer` | GKE cluster settings from the GKE API (`container.clusters.get`, `.list`)                          | change them, or **connect to the cluster at all** — no pod, workload, ConfigMap or Secret |
-| `compute`     | `bobbinComputeConfigViewer`    | Compute Engine instance, managed instance group and autoscaler settings, recent zone operations    | change them, or read the serial console, screenshots, metadata or startup scripts        |
+| `kubernetes`  | `bobbinKubernetesConfigViewer` | GKE cluster settings from the GKE API (`container.clusters.get`, `.list`)                          | change them, or read anything **inside** the cluster — no pod, workload, ConfigMap or Secret; see below |
+| `compute`     | `bobbinComputeConfigViewer`    | Compute Engine instance, managed instance group and autoscaler settings, recent zone operations    | change them, or read the serial console or screenshots. `instances.get` does return instance metadata, startup script included; Bobbin's tool discards it — see below |
 | `networking`  | `bobbinNetworkingConfigViewer` | load balancer backend health with the reason, timeouts, balancing mode, health checks, URL maps    | change them, or read instance internals                                                  |
 
 The exact permission list of each role is the `family_permissions` table
@@ -163,10 +171,34 @@ they are the same list, and the product's own test suite asserts that
 list equals what its tool calls.
 
 **GKE, plainly:** Bobbin reads the GKE API and Cloud Logging and never
-connects to your cluster's control plane — not with this role, not with
-any other. The GKE API has no pods, Deployments, ConfigMaps or Secrets;
-those live behind your cluster's API server, and that is a door Bobbin
-does not have a key to.
+connects to your cluster's control plane — its code has no Kubernetes
+client at all. The GKE API has no pods, Deployments, ConfigMaps or
+Secrets; those live behind your cluster's API server. Two things about
+the permission itself, stated rather than left for you to find:
+
+- `container.clusters.get` is the permission
+  `gcloud container clusters get-credentials` uses, so an identity
+  holding it can generate a kubeconfig and present itself to your API
+  server. The role carries no permission on any Kubernetes object, so
+  under IAM and RBAC it is authorised for nothing inside the cluster
+  beyond API discovery — no pod, Secret, ConfigMap or workload can be
+  listed or read. `container.clusters.connect`, which
+  `roles/container.clusterViewer` carries, is deliberately absent.
+- On a cluster that still issues a legacy client certificate,
+  `clusters.get` returns that certificate and key in `masterAuth`.
+  Bobbin's tool never prints the field, but the permission returns it.
+  GKE has not issued one by default since 1.12; if yours still does,
+  turn it off before granting this role.
+
+**Compute Engine, plainly:** `compute.instances.get` returns the whole
+instance resource, including `metadata.items` — where `startup-script`,
+`ssh-keys` and, in practice, secrets live. There is no narrower
+permission that returns the machine type without the metadata. Bobbin's
+tool projects an allowlist of fields (machine type, status, scheduling,
+the instance group and its autoscaler, recent zone operations); metadata
+never reaches the model or the transcript, and a test asserts that. The
+serial console (`getSerialPortOutput`), screenshots (`getScreenshot`) and
+guest attributes need permissions this role does not hold.
 
 ### By script
 

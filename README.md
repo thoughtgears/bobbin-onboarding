@@ -17,7 +17,7 @@ Four Google-managed **read-only** roles, on the projects you choose:
 | `roles/logging.viewer` | Log entries, and the Admin Activity audit log |
 | `roles/monitoring.viewer` | Metrics and alert policies |
 | `roles/errorreporting.viewer` | Error groups |
-| `roles/run.viewer` | Cloud Run service and revision configuration |
+| `roles/run.viewer` | Cloud Run service and revision configuration, environment-variable values included |
 
 That is the complete list for reading telemetry. Bobbin cannot change
 anything in your project, and asks for no role that would let it. It
@@ -26,8 +26,10 @@ reads at the moment an alert fires and keeps no copy of your telemetry.
 Optionally, per service you name, **one more read-only role** lets Bobbin
 read that service's settings as well — a custom role holding exactly the
 `get`/`list` permissions its tool calls, deleted again by the revoke
-script. For GKE that is the GKE API and never the cluster. See
-[Optional: a configuration role per service](docs/granting-access.md#optional-a-configuration-role-per-service).
+script. For GKE that is the GKE API, and Bobbin never connects to your
+cluster — though read what the permission itself allows, in
+[Optional: a configuration role per service](docs/granting-access.md#optional-a-configuration-role-per-service),
+before granting it.
 
 The audit-log half of `logging.viewer` is worth calling out rather than
 leaving you to infer it from the role name. When an incident was caused by
@@ -38,6 +40,15 @@ when, and the email address of whoever changed it. It is the same
 but it is a different sentence, and you should have it before you run
 anything. Data Access audit logs are a separate permission
 (`logging.privateLogEntries.list`) and Bobbin is never granted it.
+
+The same kind of sentence, about `run.viewer`: it returns the full service
+and revision spec, and that includes the **literal value of every
+environment variable** set on a revision. Bobbin reads variable names
+only and never persists a value — the schema it parses the response with
+has no `value` field, and a test asserts none reaches the model or the
+transcript — but the permission allows reading them. If you keep secrets
+in plain environment variables rather than Secret Manager references,
+know that before you run anything.
 
 ## The two halves
 

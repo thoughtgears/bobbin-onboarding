@@ -6,10 +6,56 @@ reconstructed from `git log` where it fell behind.
 A tag here is meant to be the `ref` you pin in the Terraform module's
 GitHub source
 (`github.com/thoughtgears/bobbin-onboarding//terraform?ref=vX.Y.Z`).
-`v0.1.0` (2026-09-09), `v0.2.0` (2026-09-14) and `v0.2.1` (2026-09-15)
-are real tags you can pin. A commit SHA works as a `ref` too, and is
-immutable in exactly the way the advice cares about. See
-[`terraform/README.md`](terraform/README.md#usage).
+`v0.1.0` (2026-09-09), `v0.2.0` (2026-09-14), `v0.2.1` (2026-09-15) and
+`v0.3.0` (2026-09-15) are real tags you can pin. A commit SHA works as a
+`ref` too, and is immutable in exactly the way the advice cares about.
+See [`terraform/README.md`](terraform/README.md#usage).
+
+## v0.3.0 — 2026-09-15
+
+### Added
+
+- **`terraform/org-policy-exception/`** — an optional, separate Terraform
+  module for the narrower of the two ways to unblock a grant when a
+  customer's organisation enforces domain-restricted sharing
+  (`constraints/iam.allowedPolicyMemberDomains`): a tag bound to the one
+  project being connected, plus a conditional policy rule that lifts the
+  restriction only on resources carrying that tag. Four resources
+  (`google_tags_tag_key`, `google_tags_tag_value`, `google_tags_tag_binding`,
+  `google_org_policy_policy`), easy to get wrong by hand, mechanically
+  rendered. Deliberately never folded into [`terraform/`](terraform/):
+  this module needs `roles/orgpolicy.policyAdmin` on the customer's
+  **organisation**, a far larger ask than the four project-scoped viewer
+  roles the existing module grants, and a reviewer approving one should
+  never be handed the other by accident.
+- **[`docs/domain-restricted-sharing.md`](docs/domain-restricted-sharing.md)**
+  — the two routes (tag-scoped exception vs adding Bobbin's customer id,
+  `C015nrtrj`, to the allowlist), a comparison table to help a customer
+  choose between them, and the corrected `gcloud` commands for both,
+  checked against Google's current Organization Policy documentation
+  rather than carried forward unverified. Route 2 (the allowlist) is
+  intentionally **not** a module — one policy value does not warrant
+  one; the doc gives the `gcloud` command and stops there.
+- Links from `README.md`, `docs/granting-access.md` and
+  `terraform/README.md`'s existing "known gotcha" sections to the new
+  doc and module, replacing the previous one-line pointer at Google's
+  generic reference.
+
+### Status — read before using `terraform/org-policy-exception`
+
+**This has not been run against an organisation that enforces the
+constraint.** Our own organisation has it at `ALLOW`, so it could not be
+exercised. The commands and resources follow Google's documented
+behaviour. Route 2 (the allowlist) is the known-good fallback if Route 1
+does not work for you. Full detail, including what was verified against
+Google's documentation versus assumed, is in
+[`terraform/org-policy-exception/README.md`](terraform/org-policy-exception/README.md).
+
+### Unchanged
+
+- `terraform/`, `grant-bobbin-access.sh`, `revoke-bobbin-access.sh` and
+  every permission list are byte-for-byte what `v0.2.1` shipped. This
+  release is additive only.
 
 ## v0.2.1 — 2026-09-15
 

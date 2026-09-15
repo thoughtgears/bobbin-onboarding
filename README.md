@@ -66,6 +66,17 @@ do them in either order.
 2. **[Slack setup](docs/slack-setup.md)** — click **Add to Slack** in
    your console and choose a channel on Slack's own consent screen.
 
+If your organisation enforces domain-restricted sharing, granting access
+fails with `FAILED_PRECONDITION` before any of the above can succeed —
+see [Domain-restricted sharing](docs/domain-restricted-sharing.md) for
+the two ways to allow it, a comparison to help you choose, and an
+optional Terraform module ([`terraform/org-policy-exception`](terraform/org-policy-exception))
+for the narrower one. **That module has not been run against an
+organisation that enforces the constraint.** Our own organisation has it
+at `ALLOW`, so it could not be exercised. The commands and resources
+follow Google's documented behaviour. Route 2 (the allowlist) is the
+known-good fallback if Route 1 does not work for you.
+
 ## Start here
 
 ```bash

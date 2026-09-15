@@ -39,10 +39,12 @@ The steps below are the same thing by hand.
 
 If your org enforces `iam.allowedPolicyMemberDomains`, granting an
 external service account fails with `FAILED_PRECONDITION` — and the raw
-error does not mention the policy. If step 1 fails that way, add a
-conditional exception for the Bobbin org (ask us for the org id) or a
-project-level override, then re-run.
-[Google's docs](https://cloud.google.com/resource-manager/docs/organization-policy/restricting-domains).
+error does not mention the policy. If step 1 fails that way, see
+[`domain-restricted-sharing.md`](domain-restricted-sharing.md): two ways
+to allow the grant, a comparison to help you choose between them, an
+optional Terraform module for the narrower one, and the corrected
+`gcloud` commands, verified against Google's current documentation
+rather than assumed.
 
 **We deliberately do not tell you to pre-check this.** Reading org policy
 needs the Org Policy API, and if it is not enabled `gcloud` offers to

@@ -14,6 +14,10 @@
 #   roles/monitoring.viewer      read metrics and alert policies
 #   roles/errorreporting.viewer  read error groups
 #   roles/run.viewer             read Cloud Run service and revision config
+#                                (the response carries environment-variable
+#                                VALUES; Bobbin keeps the names and discards
+#                                the values, but the permission allows
+#                                reading them)
 #
 # All four are read-only Google-managed roles. Bobbin cannot change
 # anything in your project, and asks for no role that would let it.
@@ -36,15 +40,25 @@
 #                          cached data, or connect
 #   --family kubernetes    bobbinKubernetesConfigViewer
 #                          reads GKE cluster settings from the GKE API —
-#                          container.clusters.get and .list, NOTHING that
-#                          reaches the cluster: Bobbin never connects to
-#                          your kube-apiserver, so no pod, workload,
-#                          ConfigMap, Secret or token is ever readable
+#                          container.clusters.get and .list, and no
+#                          permission on anything INSIDE the cluster: no
+#                          pod, workload, ConfigMap or Secret is readable.
+#                          Two things the permission does allow, stated
+#                          plainly: clusters.get is what get-credentials
+#                          uses, so the identity could generate a
+#                          kubeconfig (and then be authorised for nothing);
+#                          and on a cluster still issuing a legacy client
+#                          certificate, clusters.get returns it. Bobbin's
+#                          code has no Kubernetes client and never
+#                          connects to your kube-apiserver.
 #   --family compute       bobbinComputeConfigViewer
 #                          reads Compute Engine instance, managed instance
 #                          group and autoscaler settings; cannot read the
-#                          serial console, screenshots, metadata or
-#                          startup scripts
+#                          serial console or screenshots. instances.get
+#                          DOES return instance metadata, startup script
+#                          included — the permission allows it; Bobbin's
+#                          tool discards it (an allowlist of fields, with
+#                          a test asserting metadata is never printed)
 #   --family networking    bobbinNetworkingConfigViewer
 #                          reads load balancer backend health and
 #                          configuration; cannot read instance internals

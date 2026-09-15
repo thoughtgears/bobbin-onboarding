@@ -19,13 +19,19 @@ On every project you list, this module:
 | `roles/logging.viewer` | Log entries, and the Admin Activity audit log |
 | `roles/monitoring.viewer` | Metrics and alert policies |
 | `roles/errorreporting.viewer` | Error groups |
-| `roles/run.viewer` | Cloud Run service and revision configuration |
+| `roles/run.viewer` | Cloud Run service and revision configuration, environment-variable values included |
+
+`run.viewer` returns the full revision spec, environment-variable values
+included; Bobbin keeps the names and discards the values, but the
+permission allows reading them — see
+[the doc](../docs/granting-access.md#1-grant-the-four-read-only-roles).
 
 Optionally, per family you list in `families`, one more read-only
 **custom** role is defined in the project and bound — see
 [Optional: a configuration role per service](../docs/granting-access.md#optional-a-configuration-role-per-service)
-for what each reads and cannot. `terraform destroy` removes the
-definition with the binding.
+for what each reads, what the permission itself allows, and what Bobbin's
+tool discards. `terraform destroy` removes the definition with the
+binding.
 
 That is the complete list — this module never requests, and never
 grants, anything beyond it. It also never touches the tenant topic's own
@@ -39,7 +45,7 @@ tried to.
 
 ```hcl
 module "bobbin" {
-  source = "github.com/thoughtgears/bobbin-onboarding//terraform?ref=v0.2.0"
+  source = "github.com/thoughtgears/bobbin-onboarding//terraform?ref=v0.2.1"
 
   tenant_service_account = "tenant-acme-prod@bobbin-shard-N.iam.gserviceaccount.com"
   tenant_topic           = "projects/bobbin-hub-N/topics/tenant-acme-prod-alerts"
@@ -55,7 +61,7 @@ output "bobbin_project_numbers" {
 ```
 
 **Pin `ref` to a tag rather than tracking a branch**, so an upstream
-change never lands in your plan unannounced. `v0.2.0` is the current
+change never lands in your plan unannounced. `v0.2.1` is the current
 release; [`../CHANGELOG.md`](../CHANGELOG.md) says what changed at each
 tag.
 

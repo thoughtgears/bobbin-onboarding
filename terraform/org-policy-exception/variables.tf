@@ -1,21 +1,67 @@
 # Every input here maps onto a value this module needs to build ONE
 # thing: a tag-scoped exception to constraints/iam.allowedPolicyMemberDomains,
 # narrowed to a single project. Read ../org-policy-exception/README.md
-# before setting any of these — this module edits your ORGANISATION's
-# policy, not a project, and needs roles/orgpolicy.policyAdmin (or an
-# equivalent custom role) to apply.
+# before setting any of these — this module edits organisation policy,
+# and needs roles/orgpolicy.policyAdmin (or an equivalent custom role) on
+# whichever node var.parent names, to apply.
+
+variable "parent" {
+  description = <<-EOT
+    Where the exception POLICY OBJECT is set — the administrative node
+    this module edits org policy on. Exactly one of:
+
+      organizations/<numeric organisation id>
+      folders/<numeric folder id>
+      projects/<project id>
+
+    No default: a module that edits organisation policy must never pick
+    this implicitly. This is not a detail — the rule content this module
+    generates is DIFFERENT at organisation level than at folder or
+    project level (see main.tf and the README's "How the rule content
+    varies by level" section), because only the organisation node has no
+    parent to inherit an existing restriction FROM.
+
+    See the README's "Choosing a level" section for why Bobbin
+    recommends project or folder over organisation: either asks whoever
+    applies this for `orgpolicy.policy.set` on ONE node rather than the
+    whole organisation, and a mistake here can only reach resources
+    under that one node, never anything outside it. Organisation is the
+    escape hatch for an org that centralises policy management, not the
+    default choice.
+  EOT
+  type        = string
+
+  validation {
+    condition = (
+      can(regex("^organizations/[0-9]+$", var.parent)) ||
+      can(regex("^folders/[0-9]+$", var.parent)) ||
+      can(regex("^projects/[a-z][a-z0-9-]{4,28}[a-z0-9]$", var.parent))
+    )
+    error_message = "parent must be exactly one of: organizations/<numeric id>, folders/<numeric id>, or projects/<project id>."
+  }
+}
 
 variable "organization_id" {
   description = <<-EOT
     Your numeric Google Cloud organisation id, e.g. 123456789012 — get it
-    with `gcloud organizations list`. This module sets a policy at
-    organizations/<this id>/policies/iam.allowedPolicyMemberDomains, so a
-    mistyped id here would not fail loudly: at best it targets an
+    with `gcloud organizations list`. Required regardless of var.parent:
+    the tag key this module creates is always created at the
+    ORGANISATION, never at var.parent directly. That is not this
+    module's choice — Google's own guidance for tag-scoped organisation
+    policies ("Setting an organization policy with tags") creates the
+    tag key at the organisation and calls the numeric id it uses in the
+    condition expression "the parent organization of your tag key",
+    independent of which level the policy itself applies at. A tag key
+    also cannot be created directly under a folder, which rules out
+    deriving this from var.parent when it names a folder.
+
+    A mistyped id here would not fail loudly: at best it targets an
     organisation that does not exist and plan fails; at worst, if the
     typo happens to resolve to a REAL organisation you have access to,
-    it changes THAT organisation's policy instead of yours. The
-    validation below can only confirm the id is numeric — it cannot know
-    which organisation is yours.
+    it creates a tag key THERE instead of yours. The validation below
+    can only confirm the id is numeric, and — when var.parent itself
+    names an organisation — that the two agree; it cannot know which
+    organisation is actually yours.
   EOT
   type        = string
 
@@ -23,13 +69,22 @@ variable "organization_id" {
     condition     = can(regex("^[0-9]+$", var.organization_id))
     error_message = "organization_id must be the numeric organisation id from `gcloud organizations list` (e.g. 123456789012) — not a domain name, and not prefixed with \"organizations/\"."
   }
+
+  validation {
+    condition     = !can(regex("^organizations/", var.parent)) || var.parent == "organizations/${var.organization_id}"
+    error_message = "when parent is organizations/<id>, organization_id must be that same id — the tag key's organisation and the policy's organisation cannot disagree."
+  }
 }
 
 variable "project_id" {
   description = <<-EOT
-    The one GCP project being connected to Bobbin. Only this project is
-    tagged; domain-restricted sharing stays enforced, unchanged,
-    everywhere else in your organisation.
+    The one GCP project being connected to Bobbin — the resource that
+    gets tagged, and therefore the resource the exception's conditional
+    rule actually exempts. Independent of var.parent: parent says WHERE
+    the policy object lives; project_id says WHICH resource carries the
+    tag the policy's condition matches on. When var.parent is
+    projects/<id>, this is typically — though the module does not
+    require it — that same project.
   EOT
   type        = string
 
@@ -41,28 +96,37 @@ variable "project_id" {
 
 variable "existing_allowed_values" {
   description = <<-EOT
-    Your organisation's CURRENT domain-restricted-sharing allowlist,
+    Your CURRENT domain-restricted-sharing allowlist at var.parent,
     exactly as it reads today. Get it with:
 
       gcloud org-policies describe iam.allowedPolicyMemberDomains \
         --organization=ORGANIZATION_ID --effective \
         --format='value(spec.rules[0].values.allowedValues)'
 
-    There is deliberately no default and this module will not guess it
-    for you. Setting an organisation policy for a list constraint
-    REPLACES its entire rule set — that is how the Organization Policy
-    Service works, not a choice this module makes (see the README's
-    "How this actually changes your policy" section) — so a default
-    here would risk silently dropping your own organisation from its
-    own allowlist the first time this module ran. An empty value fails
-    plan rather than doing that.
+    (substitute --folder or the default project-scoped invocation if
+    var.parent names a folder or project instead).
+
+    REQUIRED, and must be non-empty, only when var.parent is
+    organizations/<id>. Setting an organisation-level policy for a list
+    constraint REPLACES its entire rule set — that is how the
+    Organization Policy Service works, not a choice this module makes
+    (see the README's "How the rule content varies by level" section) —
+    so at that level this module restates your existing allowlist as an
+    unconditional fallback rule, and needs to be told what it is. A
+    default here would risk silently dropping your own organisation from
+    its own allowlist the first time this module ran, so there is none;
+    an empty value at organisation level fails plan rather than doing
+    that (see the `lifecycle.precondition` blocks in main.tf).
+
+    MUST BE LEFT EMPTY when var.parent is folders/<id> or projects/<id>.
+    At those levels the policy sets `inherit_from_parent = true` and
+    adds only the conditional exception rule — nothing is being
+    replaced, so there is nothing to restate, and a value here would be
+    silently ignored rather than applied. The same precondition blocks
+    refuse plan rather than let that happen quietly.
   EOT
   type        = list(string)
-
-  validation {
-    condition     = length(var.existing_allowed_values) > 0
-    error_message = "existing_allowed_values must not be empty. Read your current effective policy first (see the variable description) and pass its allowedValues here — an empty list would remove your own organisation's access, not just narrow it."
-  }
+  default     = []
 
   validation {
     condition = alltrue([
@@ -70,23 +134,6 @@ variable "existing_allowed_values" {
       can(regex("^(is:)?(C[0-9A-Za-z]+|principalSet://.+)$", value))
     ])
     error_message = "each value in existing_allowed_values must look like a Google Workspace customer id (C…, optionally \"is:\"-prefixed) or an organisation principal set (…principalSet://…) — the same shapes `gcloud org-policies describe --effective` returns."
-  }
-}
-
-variable "bobbin_customer_id" {
-  description = <<-EOT
-    Bobbin's Cloud Identity customer id — the value this module adds to
-    your allowlist, conditional on the tag it creates. Defaults to the
-    id current as of this module's v0.3.0 release. Override only if
-    Bobbin tells you it has changed; we will say so loudly if it ever
-    does, since every customer using Route 1 depends on it.
-  EOT
-  type        = string
-  default     = "C015nrtrj"
-
-  validation {
-    condition     = can(regex("^C[0-9A-Za-z]+$", var.bobbin_customer_id))
-    error_message = "bobbin_customer_id must look like a Google Workspace customer id, e.g. C015nrtrj."
   }
 }
 

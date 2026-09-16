@@ -103,10 +103,13 @@ for the two ways to allow the grant, a comparison to help you choose,
 and an optional module —
 [`../terraform/org-policy-exception`](org-policy-exception) — for the
 narrower one. It is deliberately a **separate** module: applying it
-needs `roles/orgpolicy.policyAdmin` on your organisation, a far larger
-ask than the four project-scoped viewer roles this module grants, and a
-reviewer approving this module should never be handed that one by
-accident. Once the exception is in place, `apply` here again — the
+needs `roles/orgpolicy.policyAdmin` (or the `orgpolicy.policy.set`
+permission) on whichever level you set it at — organisation, folder, or
+a single project; that module's README recommends project or folder,
+which keeps the ask close to this module's own project-scoped viewer
+roles. A reviewer approving this module should never be handed
+org-policy access by accident, whichever level someone else picks for
+the exception. Once the exception is in place, `apply` here again — the
 resources are idempotent, so re-running picks up exactly where it
 stopped.
 

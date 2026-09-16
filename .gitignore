@@ -12,11 +12,13 @@ override.tf.json
 .terraformrc
 terraform.rc
 
-# terraform/ is a reusable module, sourced by a consumer's own root
-# module. Its lock file is never read when used that way, so committing
-# one here is meaningless noise — unlike examples/single-project, which
-# IS a root module and keeps its lock file tracked for reproducibility.
+# terraform/ and terraform/org-policy-exception/ are reusable modules,
+# sourced by a consumer's own root module. Their lock files are never
+# read when used that way, so committing one here is meaningless noise
+# — unlike examples/single-project, which IS a root module and keeps its
+# lock file tracked for reproducibility.
 /terraform/.terraform.lock.hcl
+/terraform/org-policy-exception/.terraform.lock.hcl
 
 # Real values, not the illustrative ones in terraform.tfvars.example.
 examples/*/terraform.tfvars

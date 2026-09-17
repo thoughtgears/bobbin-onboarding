@@ -46,10 +46,78 @@ variable "project_ids" {
   }
 }
 
-variable "channel_display_name" {
-  description = "Display name for the Cloud Monitoring notification channel."
+# ---------------------------------------------------------------------
+# Product identity. These four are the ONLY place the product's name
+# appears in this module. Everything the customer sees in their own IAM
+# console — custom role ids, titles and descriptions, and the
+# notification channel's name — renders from them, so a rename is a
+# change to these defaults and nothing else.
+#
+# They are deliberately separate from the project ids inside
+# tenant_service_account and tenant_topic. A GCP project id is immutable,
+# so it never carries the brand; these are mutable, so they always do.
+# ---------------------------------------------------------------------
+
+variable "product_name" {
+  description = <<-EOT
+    Display form of the product name, as someone reading their own IAM
+    policy should see it. Appears in every custom role title and
+    description this module creates in your project.
+  EOT
   type        = string
-  default     = "Bobbin (@bobby)"
+  default     = "Bobbin"
+
+  validation {
+    condition     = length(trimspace(var.product_name)) > 0
+    error_message = "product_name must not be empty."
+  }
+}
+
+variable "product_slug" {
+  description = <<-EOT
+    Identifier form of the product name. Prefixes the custom role ids
+    ("bobbin" gives bobbinManagedSqlConfigViewer) and names the
+    onboarding repository cited in each role's description. Lower-case
+    letters and digits only: a custom role id must be a valid
+    identifier, and cannot be changed once the role exists.
+  EOT
+  type        = string
+  default     = "bobbin"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9]{1,20}$", var.product_slug))
+    error_message = "product_slug must start with a lower-case letter and contain only lower-case letters and digits (2-21 characters)."
+  }
+}
+
+variable "product_url" {
+  description = <<-EOT
+    Where someone who finds these roles in their IAM policy months from
+    now can read what they are. Appears in every role description.
+  EOT
+  type        = string
+  default     = "https://getbobbin.dev"
+}
+
+variable "agent_name" {
+  description = <<-EOT
+    The agent's handle. Used only to render the default notification
+    channel name; set channel_display_name directly to override.
+  EOT
+  type        = string
+  default     = "bobby"
+}
+
+variable "channel_display_name" {
+  description = <<-EOT
+    Display name for the Cloud Monitoring notification channel. Leave
+    null to render "<product_name> (@<agent_name>)", so that a rename
+    carries here automatically. Terraform cannot reference one variable
+    from another's default, which is why this is null rather than a
+    literal and is resolved in locals.
+  EOT
+  type        = string
+  default     = null
 }
 
 variable "families" {

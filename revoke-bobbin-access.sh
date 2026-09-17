@@ -53,12 +53,16 @@ readonly ROLES=(
 # The optional family roles grant-bobbin-access.sh can define. Kept in
 # step with that script's family_role_id, and with FAMILY_GRANTS in the
 # product repo. Every one is deleted here if it exists.
+# Product identity — see the same pair in grant-bobbin-access.sh. A
+# rename changes this one line; the ids below follow.
+readonly PRODUCT_SLUG="bobbin"
+
 readonly FAMILY_ROLE_IDS=(
-  bobbinManagedSqlConfigViewer
-  bobbinCacheConfigViewer
-  bobbinKubernetesConfigViewer
-  bobbinComputeConfigViewer
-  bobbinNetworkingConfigViewer
+  "${PRODUCT_SLUG}ManagedSqlConfigViewer"
+  "${PRODUCT_SLUG}CacheConfigViewer"
+  "${PRODUCT_SLUG}KubernetesConfigViewer"
+  "${PRODUCT_SLUG}ComputeConfigViewer"
+  "${PRODUCT_SLUG}NetworkingConfigViewer"
 )
 
 TENANT_SA=""

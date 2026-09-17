@@ -46,29 +46,29 @@ locals {
   # can connect to the cluster). Keep the three in step.
   family_roles = {
     "managed-sql" = {
-      role_id     = "bobbinManagedSqlConfigViewer"
-      title       = "Bobbin Cloud SQL configuration viewer"
+      role_id     = "${var.product_slug}ManagedSqlConfigViewer"
+      title       = "${var.product_name} Cloud SQL configuration viewer"
       permissions = ["cloudsql.instances.get", "cloudsql.instances.list"]
     }
     "cache" = {
-      role_id = "bobbinCacheConfigViewer"
-      title   = "Bobbin Memorystore configuration viewer"
+      role_id = "${var.product_slug}CacheConfigViewer"
+      title   = "${var.product_name} Memorystore configuration viewer"
       permissions = [
         "redis.instances.get", "redis.instances.list",
         "memorystore.instances.get", "memorystore.instances.list",
         "memcache.instances.get", "memcache.instances.list",
       ]
     }
-    # The GKE API only — container.clusters.get and .list. Bobbin never
-    # connects to your cluster, so no permission that reaches it is here.
+    # The GKE API only — container.clusters.get and .list. We never
+    # connect to your cluster, so no permission that reaches it is here.
     "kubernetes" = {
-      role_id     = "bobbinKubernetesConfigViewer"
-      title       = "Bobbin GKE configuration viewer"
+      role_id     = "${var.product_slug}KubernetesConfigViewer"
+      title       = "${var.product_name} GKE configuration viewer"
       permissions = ["container.clusters.get", "container.clusters.list"]
     }
     "compute" = {
-      role_id = "bobbinComputeConfigViewer"
-      title   = "Bobbin Compute Engine configuration viewer"
+      role_id = "${var.product_slug}ComputeConfigViewer"
+      title   = "${var.product_name} Compute Engine configuration viewer"
       permissions = [
         "compute.instances.get", "compute.instances.list",
         "compute.instanceGroupManagers.list", "compute.autoscalers.list",
@@ -76,8 +76,8 @@ locals {
       ]
     }
     "networking" = {
-      role_id = "bobbinNetworkingConfigViewer"
-      title   = "Bobbin load balancing configuration viewer"
+      role_id = "${var.product_slug}NetworkingConfigViewer"
+      title   = "${var.product_name} load balancing configuration viewer"
       permissions = [
         "compute.backendServices.get", "compute.backendServices.list",
         "compute.regionBackendServices.get", "compute.regionBackendServices.list",
@@ -86,6 +86,13 @@ locals {
       ]
     }
   }
+
+  # Rendered here rather than as a variable default, because Terraform
+  # will not let one variable's default reference another.
+  channel_display_name = coalesce(
+    var.channel_display_name,
+    "${var.product_name} (@${var.agent_name})",
+  )
 
   # One role definition and one binding per (project, family) the
   # customer named. Nothing is created for a family not in var.families.
@@ -124,7 +131,7 @@ resource "google_project_iam_custom_role" "bobbin" {
   project     = each.value.project_id
   role_id     = local.family_roles[each.value.family].role_id
   title       = local.family_roles[each.value.family].title
-  description = "Read-only: what Bobbin's ${each.value.family} configuration tool calls, and nothing else. Managed by the bobbin-onboarding Terraform module."
+  description = "Read-only: what ${var.product_name}'s ${each.value.family} configuration tool calls, and nothing else. Managed by the ${var.product_slug}-onboarding Terraform module — ${var.product_url}"
   permissions = local.family_roles[each.value.family].permissions
   stage       = "GA"
 }
@@ -146,7 +153,7 @@ resource "google_monitoring_notification_channel" "bobbin" {
   for_each = var.project_ids
 
   project      = each.value
-  display_name = var.channel_display_name
+  display_name = local.channel_display_name
   type         = "pubsub"
 
   labels = {

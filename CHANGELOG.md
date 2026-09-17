@@ -19,6 +19,49 @@ A commit SHA works as a `ref` too, and is immutable in exactly the way
 the advice cares about. See
 [`terraform/README.md`](terraform/README.md#usage).
 
+## Unreleased
+
+### Added
+
+- **`product_name`, `product_slug`, `product_url` and `agent_name`
+  inputs** to [`terraform/`](terraform/), and a matching `PRODUCT_SLUG` /
+  `PRODUCT_NAME` pair at the top of both scripts. Every custom role id,
+  role title, role description and notification-channel name now renders
+  from those rather than being spelled out where it is used.
+
+  **Nothing changes for anyone.** The defaults render byte-for-byte what
+  v0.3.0 produced — `bobbinManagedSqlConfigViewer`, "Bobbin Cloud SQL
+  configuration viewer", "Bobbin (@bobby)" and the rest — and this was
+  verified by diffing the rendered output of both scripts against the
+  previous literals, and by the product repo's own test suite, whose
+  fixtures still assert the old strings and still pass.
+
+  The reason is separation rather than configurability: a GCP project id
+  is immutable and so must never carry a product's name, while a role
+  title is mutable and is the thing a customer reading their own IAM
+  policy actually sees. Keeping the two apart means the product's name
+  can change without a customer's project being touched.
+
+### Changed
+
+- Each family role's `description` now carries `product_url`, so someone
+  auditing their IAM policy months later can find out what the role is
+  from the role itself rather than from a document they no longer have.
+- `channel_display_name` now defaults to `null` and renders
+  `"<product_name> (@<agent_name>)"` in `locals`. Terraform does not
+  allow one variable's default to reference another, so a literal default
+  here would have been a second place to edit on a rename — which is the
+  thing this change exists to prevent. Passing the variable explicitly
+  works exactly as before.
+
+### Note for anyone changing these
+
+The custom role ids have **four** renderings: this module, both scripts,
+and `FAMILY_GRANTS` in the product repo. The verifier matches a
+customer's grant on the role id, so a change that reaches some of them
+and not the rest makes a grant apply and then fail verification with
+nothing naming the cause. They move together or not at all.
+
 ## v0.3.0 — 2026-09-16
 
 ### Added

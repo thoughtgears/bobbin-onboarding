@@ -89,24 +89,34 @@ readonly ROLES=(
 # defined here with a different list would verify against the wrong
 # thing. The permission strings are read from Google's method reference
 # pages; none is from memory.
+# Product identity. The role ids and titles below are rendered from
+# these two, so a rename is a change here and nowhere else in this file.
+# They must stay in step with product_slug / product_name in
+# terraform/variables.tf, FAMILY_ROLE_IDS in revoke-bobbin-access.sh, and
+# PRODUCT_SLUG / PRODUCT_NAME in the product repo's grants.ts — the
+# verifier matches on the role id, so a slug that differs from the
+# product's makes a grant apply and then fail verification.
+readonly PRODUCT_SLUG="bobbin"
+readonly PRODUCT_NAME="Bobbin"
+
 readonly FAMILY_NAMES=(managed-sql cache kubernetes compute networking)
 family_role_id() {
   case "$1" in
-    managed-sql) printf 'bobbinManagedSqlConfigViewer' ;;
-    cache)       printf 'bobbinCacheConfigViewer' ;;
-    kubernetes)  printf 'bobbinKubernetesConfigViewer' ;;
-    compute)     printf 'bobbinComputeConfigViewer' ;;
-    networking)  printf 'bobbinNetworkingConfigViewer' ;;
+    managed-sql) printf '%sManagedSqlConfigViewer' "$PRODUCT_SLUG" ;;
+    cache)       printf '%sCacheConfigViewer' "$PRODUCT_SLUG" ;;
+    kubernetes)  printf '%sKubernetesConfigViewer' "$PRODUCT_SLUG" ;;
+    compute)     printf '%sComputeConfigViewer' "$PRODUCT_SLUG" ;;
+    networking)  printf '%sNetworkingConfigViewer' "$PRODUCT_SLUG" ;;
     *)           return 1 ;;
   esac
 }
 family_role_title() {
   case "$1" in
-    managed-sql) printf 'Bobbin Cloud SQL configuration viewer' ;;
-    cache)       printf 'Bobbin Memorystore configuration viewer' ;;
-    kubernetes)  printf 'Bobbin GKE configuration viewer' ;;
-    compute)     printf 'Bobbin Compute Engine configuration viewer' ;;
-    networking)  printf 'Bobbin load balancing configuration viewer' ;;
+    managed-sql) printf '%s Cloud SQL configuration viewer' "$PRODUCT_NAME" ;;
+    cache)       printf '%s Memorystore configuration viewer' "$PRODUCT_NAME" ;;
+    kubernetes)  printf '%s GKE configuration viewer' "$PRODUCT_NAME" ;;
+    compute)     printf '%s Compute Engine configuration viewer' "$PRODUCT_NAME" ;;
+    networking)  printf '%s load balancing configuration viewer' "$PRODUCT_NAME" ;;
   esac
 }
 family_permissions() {
